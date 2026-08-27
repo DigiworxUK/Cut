@@ -180,7 +180,7 @@ const dow=s=>new Date(s+"T12:00:00").getDay();
 const fmt=s=>new Date(s+"T12:00:00").toLocaleDateString("en-GB",
   {weekday:"short",day:"numeric",month:"short"});
 
-let date=today(), tab="today", open=null, pick=null;
+let date=today(), tab="today", openMeal=null, pick=null;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 /* ─────────── views ─────────── */
@@ -211,15 +211,17 @@ function viewToday(){
     <div class="bar"><i style="width:${Math.min(100,gp/plan.p*100)}%"></i></div>`;
 
   plan.items.forEach(i=>{
-    const on=!!tick[i.id], isOpen=open===i.id;
+    const on=!!tick[i.id], isOpen=openMeal===i.id;
     h+=`<div style="border-bottom:1px solid var(--ruleSoft)">
       <div style="display:flex;align-items:center;gap:12px;padding:12px 0">
         <button data-meal="${i.id}" aria-label="Mark ${esc(i.name)}"><span class="tick ${on?"on":""}">${on?"✓":""}</span></button>
-        <button data-open="${i.id}" style="flex:1;text-align:left">
-          <div style="font-size:14px" class="${on?"strike":""}">${esc(i.name)}</div>
-          <div class="sub">${i.when} · ${i.p}g P · ${i.kcal} kcal</div>
+        <button data-open="${i.id}" style="flex:1;display:flex;align-items:center;gap:12px;text-align:left">
+          <span style="flex:1">
+            <span style="display:block;font-size:14px" class="${on?"strike":""}">${esc(i.name)}</span>
+            <span class="sub" style="display:block">${i.when} · ${i.p}g P · ${i.kcal} kcal</span>
+          </span>
+          <span class="mono" style="font-size:18px;color:var(--faint);padding:0 4px">${isOpen?"−":"+"}</span>
         </button>
-        <span class="mono" style="color:var(--faint)">${isOpen?"−":"+"}</span>
       </div>
       ${isOpen?`<div style="padding:0 0 12px 32px">
         ${i.ing.map(([n,w])=>`<div class="ing"><span style="font-size:13px;color:var(--muted)">${esc(n)}</span>
@@ -478,7 +480,7 @@ document.getElementById("view").addEventListener("click",e=>{
   if(!t) return;
   const d=t.dataset;
   if(d.meal!==undefined){ const m=S.meals[date]||(S.meals[date]={}); m[d.meal]=!m[d.meal]; save(); render(); }
-  else if(d.open!==undefined){ open=open===d.open?null:d.open; render(); }
+  else if(d.open!==undefined){ openMeal=openMeal===d.open?null:d.open; render(); }
   else if(d.shop!==undefined){ S.shopping[d.shop]=!S.shopping[d.shop]; save(); render(); }
   else if(d.pick!==undefined){ pick=d.pick; render(true); }
   else if(d.go!==undefined){ tab=d.go; pick=null; render(true); }
@@ -488,7 +490,7 @@ document.getElementById("view").addEventListener("click",e=>{
 
 document.getElementById("tabs").addEventListener("click",e=>{
   const b=e.target.closest("[data-tab]"); if(!b) return;
-  tab=b.dataset.tab; pick=null; open=null; render(true);
+  tab=b.dataset.tab; pick=null; openMeal=null; render(true);
 });
 document.getElementById("prev").onclick=()=>{date=shift(date,-1);pick=null;render(true)};
 document.getElementById("next").onclick=()=>{date=shift(date,1);pick=null;render(true)};
