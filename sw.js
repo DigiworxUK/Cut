@@ -1,6 +1,6 @@
 /* The Cut — offline cache.
    Bump CACHE when you change any file, or phones will keep serving the old copy. */
-const CACHE = "thecut-v1";
+const CACHE = "thecut-v2";
 const FILES = [
   "./",
   "./index.html",
