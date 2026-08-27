@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>The Cut</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Cut">
+<meta name="theme-color" content="#16181C">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root{
+    --ink:#16181C; --panel:#1E222A; --rule:#2B313C; --ruleSoft:#242933;
+    --chalk:#E8E6E1; --muted:#868D98; --faint:#4A525E;
+    --pencil:#C4453C; --patina:#4E8C7B; --ochre:#C89B3C;
+    --mono:'Courier New',Courier,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--ink);color:var(--chalk);
+    font-family:var(--sans);-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
+  body{padding-top:env(safe-area-inset-top)}
+  #wrap{max-width:560px;margin:0 auto;padding:0 16px 140px}
+  button{font:inherit;background:none;border:none;color:inherit;cursor:pointer;
+    touch-action:manipulation}
+  input{font-size:16px}            /* 16px stops iOS zooming on focus */
+  .mono{font-family:var(--mono)}
+  .panel{background:var(--panel);border:1px solid var(--rule);border-radius:4px;
+    padding:16px;margin-bottom:16px}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .row{display:flex;align-items:center;gap:12px;padding:12px 0;
+    border-bottom:1px solid var(--ruleSoft);width:100%;text-align:left}
+  .tick{width:20px;height:20px;border-radius:3px;border:1px solid var(--faint);
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+    font-family:var(--mono);font-size:12px;color:#fff}
+  .tick.on{background:var(--patina);border-color:var(--patina)}
+  .strike{color:var(--faint);text-decoration:line-through}
+  .sub{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .bar{height:3px;background:var(--rule);border-radius:2px;overflow:hidden}
+  .bar > i{display:block;height:3px;background:var(--patina);transition:width .25s}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .cell{width:100%;padding:10px 6px;background:var(--ink);border:1px solid var(--rule);
+    border-radius:3px;color:var(--chalk);font-family:var(--mono);text-align:center}
+  .cell::placeholder{color:var(--faint)}
+  header{display:flex;align-items:center;justify-content:space-between;padding:22px 0 12px}
+  nav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
+    border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+  nav div{max-width:560px;margin:0 auto;display:flex}
+  nav button{flex:1;padding:16px 0;font-family:var(--mono);font-size:12px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+    border-top:2px solid transparent}
+  nav button.on{color:var(--chalk);border-top-color:var(--pencil)}
+  .arrow{width:40px;height:40px;background:var(--panel);border:1px solid var(--rule);
+    border-radius:3px;font-family:var(--mono);font-size:18px}
+  .datenav{display:flex;align-items:center;gap:8px;padding-bottom:16px}
+  .ghost{border:1px solid var(--rule);border-radius:3px;padding:8px 12px;
+    font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .cta{width:100%;padding:16px;border-radius:4px;font-family:var(--mono);font-size:13px;
+    letter-spacing:.12em;text-transform:uppercase;color:#fff;margin-bottom:16px}
+  .ing{display:flex;justify-content:space-between;padding:6px 0;
+    border-bottom:1px dotted var(--ruleSoft)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div>
+      <div class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--pencil)">86 &rarr; 72</div>
+      <div class="mono" style="font-size:22px">The Cut</div>
+    </div>
+    <div class="mono" id="status" style="font-size:10px;color:var(--faint)"></div>
+  </header>
+  <div class="datenav">
+    <button class="arrow" id="prev" aria-label="Previous day">&lsaquo;</button>
+    <div style="flex:1;text-align:center">
+      <div class="mono" id="dlabel" style="font-size:14px"></div>
+      <div class="mono" id="dsub" style="font-size:10px;color:var(--faint)"></div>
+    </div>
+    <button class="arrow" id="next" aria-label="Next day">&rsaquo;</button>
+    <button class="ghost" id="jump" style="color:var(--pencil)">today</button>
+  </div>
+  <main id="view"></main>
+</div>
+<nav><div id="tabs"></div></nav>
+
+<script>
+/* ─────────── plan data ─────────── */
+const START=86, TARGET=72;
+
+const SESSIONS={
+ A:{name:"Full body A",lifts:[
+  {id:"sq",name:"Back squat / leg press",sets:4,lo:6,hi:8,jump:5},
+  {id:"bp",name:"Bench press",sets:4,lo:6,hi:8,jump:2.5},
+  {id:"row",name:"Barbell row",sets:4,lo:8,hi:10,jump:2.5},
+  {id:"rdl",name:"Romanian deadlift",sets:3,lo:8,hi:10,jump:5},
+  {id:"pl",name:"Plank (seconds)",sets:3,lo:45,hi:60,jump:0}]},
+ B:{name:"Full body B",lifts:[
+  {id:"dl",name:"Deadlift",sets:3,lo:5,hi:5,jump:5},
+  {id:"ohp",name:"Overhead press",sets:4,lo:6,hi:8,jump:2.5},
+  {id:"chin",name:"Chin-up",sets:4,lo:5,hi:10,jump:2.5},
+  {id:"lun",name:"Walking lunge (per leg)",sets:3,lo:10,hi:10,jump:2.5},
+  {id:"fp",name:"Face pull",sets:3,lo:15,hi:15,jump:2.5}]},
+ C:{name:"Full body C",lifts:[
+  {id:"fsq",name:"Front / goblet squat",sets:4,lo:8,hi:10,jump:5},
+  {id:"idb",name:"Incline dumbbell press",sets:4,lo:8,hi:10,jump:2.5},
+  {id:"pd",name:"Lat pulldown / cable row",sets:4,lo:10,hi:12,jump:2.5},
+  {id:"ht",name:"Hip thrust",sets:3,lo:10,hi:12,jump:5},
+  {id:"arm",name:"Curl + pushdown",sets:3,lo:12,hi:12,jump:2.5}]}
+};
+const DAY_MAP={1:"A",3:"B",5:"C"}, RIDE=[2,4,6];
+
+const MEALS={
+ train:{kcal:2350,p:170,c:240,f:75,items:[
+  {id:"t1",when:"Pre-lift",name:"Oats, whey, berries",p:44,kcal:605,ing:[
+    ["Porridge oats","80 g"],["Semi-skimmed milk","250 ml"],
+    ["Whey protein","30 g (1 scoop)"],["Frozen berries","150 g"]]},
+  {id:"t2",when:"Lunch",name:"Chicken, rice, big salad",p:52,kcal:695,ing:[
+    ["Chicken breast, raw","200 g"],["Rice, cooked","250 g (85 g dry)"],
+    ["Salad veg","150 g"],["Olive oil","12 g (1 tbsp)"]]},
+  {id:"t3",when:"Post-lift",name:"Skyr + banana",p:28,kcal:260,ing:[
+    ["0% skyr / Greek yoghurt","250 g"],["Banana","120 g (1 medium)"]]},
+  {id:"t4",when:"Dinner",name:"Salmon, potatoes, greens",p:47,kcal:700,ing:[
+    ["Salmon fillet","160 g"],["Potatoes","300 g"],
+    ["Broccoli or green beans","200 g"],["Olive oil","8 g (2 tsp)"]]}]},
+ rest:{kcal:1950,p:170,c:120,f:88,items:[
+  {id:"r1",when:"Breakfast",name:"Skyr, oats, berries, nuts",p:35,kcal:435,ing:[
+    ["0% skyr / Greek yoghurt","250 g"],["Porridge oats","40 g"],
+    ["Frozen berries","100 g"],["Mixed nuts","15 g"]]},
+  {id:"r2",when:"Lunch",name:"Chicken salad, beans, avocado",p:55,kcal:620,ing:[
+    ["Chicken breast, raw","200 g"],["Butter beans, drained","150 g"],
+    ["Avocado","75 g (half)"],["Salad veg","200 g"],["Olive oil","10 g"]]},
+  {id:"r3",when:"Snack",name:"Whey + almonds",p:29,kcal:265,ing:[
+    ["Whey protein","30 g (1 scoop)"],["Almonds","25 g"]]},
+  {id:"r4",when:"Dinner",name:"Steak or mackerel, veg, lentils",p:54,kcal:550,ing:[
+    ["Sirloin steak","150 g (or mackerel 130 g)"],["Roasted veg","250 g"],
+    ["Lentils, cooked","100 g"],["Olive oil","8 g (2 tsp)"]]}]}
+};
+
+const SHOP=[
+ ["Protein",["Chicken breast — 1 kg","Salmon fillets — 3","Mackerel or sardines — 2","Lean steak or turkey — 400 g","Tuna in springwater — 3 tins","0% Greek yoghurt / skyr — 1.5 kg","Whey protein","Semi-skimmed milk — 2 L"]],
+ ["Carbs",["Porridge oats — 1 kg","Rice — 1 kg","Potatoes — 1.5 kg","Lentils or quinoa — 500 g","Butter beans / chickpeas — 4 tins","Bananas — 5","Frozen mixed berries — 1 kg"]],
+ ["Fats",["Extra virgin olive oil — 1 L","Avocados — 4","Mixed nuts / almonds — 500 g"]],
+ ["Veg",["Broccoli, green beans","Courgettes, peppers, red onions","Salad leaves, tomatoes, cucumber","Garlic, lemons"]],
+ ["Flavour",["Dijon mustard, vinegar","Soy sauce, hot sauce","Paprika, cumin, chilli, dried herbs","Feta or parmesan — small"]]
+];
+const MILESTONES=[[86,"25%"],[81,"20%"],[77,"16%"],[74,"13%"],[72,"10%"]];
+
+/* ─────────── storage ─────────── */
+const KEY="thecut.v1";
+let S={weights:{},sessions:{},shopping:{},meals:{}};
+try{ const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(S,JSON.parse(raw)); }
+catch(e){ }
+
+let flash;
+function save(){
+  try{
+    localStorage.setItem(KEY,JSON.stringify(S));
+    setStatus("saved","var(--patina)");
+  }catch(e){
+    setStatus("NOT SAVED","var(--pencil)",true);
+  }
+}
+function setStatus(t,c,sticky){
+  const el=document.getElementById("status");
+  el.textContent=t; el.style.color=c;
+  clearTimeout(flash);
+  if(!sticky) flash=setTimeout(()=>{el.textContent="";},1200);
+}
+
+/* ─────────── dates ─────────── */
+const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const today=()=>iso(new Date());
+const shift=(s,n)=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()+n);return iso(d)};
+const dow=s=>new Date(s+"T12:00:00").getDay();
+const fmt=s=>new Date(s+"T12:00:00").toLocaleDateString("en-GB",
+  {weekday:"short",day:"numeric",month:"short"});
+
+let date=today(), tab="today", open=null, pick=null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ─────────── views ─────────── */
+function viewToday(){
+  const sess=DAY_MAP[dow(date)]||null, ride=RIDE.includes(dow(date));
+  const plan=MEALS[sess?"train":"rest"];
+  const tick=S.meals[date]||{};
+  const eaten=plan.items.filter(i=>tick[i.id]);
+  const gp=eaten.reduce((a,i)=>a+i.p,0), gk=eaten.reduce((a,i)=>a+i.kcal,0);
+  const label=sess?("Lift day — "+sess):(ride?"Ride day":"Rest day");
+
+  let h=`<div class="panel">
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+      <span class="sub">Targets</span>
+      <span class="mono" style="font-size:12px;color:${sess?"var(--pencil)":"var(--patina)"}">${label}</span>
+    </div>
+    <div class="grid4">
+      ${[["kcal",plan.kcal],["protein",plan.p+"g"],["carbs",plan.c+"g"],["fat",plan.f+"g"]]
+        .map(([l,v])=>`<div><div class="mono" style="font-size:17px">${v}</div>
+        <div class="mono" style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">${l}</div></div>`).join("")}
+    </div>
+    <div class="sub" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--ruleSoft)">
+      Saturated fat ceiling — 25 g. Every day.</div>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">${gp}/${plan.p} g protein · ${gk}/${plan.kcal} kcal</div>
+    <div class="bar"><i style="width:${Math.min(100,gp/plan.p*100)}%"></i></div>`;
+
+  plan.items.forEach(i=>{
+    const on=!!tick[i.id], isOpen=open===i.id;
+    h+=`<div style="border-bottom:1px solid var(--ruleSoft)">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 0">
+        <button data-meal="${i.id}" aria-label="Mark ${esc(i.name)}"><span class="tick ${on?"on":""}">${on?"✓":""}</span></button>
+        <button data-open="${i.id}" style="flex:1;text-align:left">
+          <div style="font-size:14px" class="${on?"strike":""}">${esc(i.name)}</div>
+          <div class="sub">${i.when} · ${i.p}g P · ${i.kcal} kcal</div>
+        </button>
+        <span class="mono" style="color:var(--faint)">${isOpen?"−":"+"}</span>
+      </div>
+      ${isOpen?`<div style="padding:0 0 12px 32px">
+        ${i.ing.map(([n,w])=>`<div class="ing"><span style="font-size:13px;color:var(--muted)">${esc(n)}</span>
+          <span class="mono" style="font-size:13px">${esc(w)}</span></div>`).join("")}
+        <div class="mono" style="font-size:10px;color:var(--faint);margin-top:8px">
+          Weigh raw. Cooked weights drift with time in the pan.</div></div>`:""}
+    </div>`;
+  });
+  h+=`</div>`;
+
+  if(sess) h+=`<button class="cta" style="background:var(--pencil)" data-go="train">Open session ${sess}</button>`;
+  if(ride) h+=`<div class="panel"><div class="eyebrow">Ride</div>
+    <div style="font-size:14px">45–90 min, conversational pace.</div>
+    <div class="sub" style="margin-top:4px">If you can't talk in full sentences, you're going too hard.</div></div>`;
+  return h;
+}
+
+function lastSession(day){
+  const ds=Object.keys(S.sessions).filter(d=>d<date&&S.sessions[d].day===day).sort();
+  const d=ds[ds.length-1];
+  return d?{date:d,entries:S.sessions[d].entries}:null;
+}
+
+function viewTrain(){
+  const auto=DAY_MAP[dow(date)]||null;
+  const cur=pick||(S.sessions[date]&&S.sessions[date].day)||auto||"A";
+  pick=cur;
+  const s=SESSIONS[cur], last=lastSession(cur);
+  const rec=S.sessions[date]&&S.sessions[date].day===cur?S.sessions[date].entries:{};
+
+  let h=`<div style="display:flex;gap:8px;margin-bottom:16px">`;
+  ["A","B","C"].forEach(k=>{
+    h+=`<button data-pick="${k}" style="flex:1;padding:12px 0;border-radius:4px;
+      font-family:var(--mono);font-size:13px;
+      background:${k===cur?"var(--panel)":"transparent"};
+      border:1px solid ${k===cur?"var(--pencil)":"var(--rule)"};
+      color:${k===cur?"var(--chalk)":"var(--muted)"}">${k}${auto===k?" ·":""}</button>`;
+  });
+  h+=`</div><div class="sub" style="display:flex;justify-content:space-between;margin-bottom:16px">
+    <span>${s.name} · ${last?"last done "+fmt(last.date):"no record yet"}</span>
+    ${Object.keys(rec).length?`<button data-clear="1" style="color:var(--pencil);font-family:var(--mono);font-size:11px">clear day</button>`:""}
+  </div>`;
+
+  s.lifts.forEach(l=>{
+    const pv=last&&last.entries[l.id];
+    const done=pv&&pv.length>=l.sets&&pv.every(r=>Number(r.r)>=l.hi);
+    const top=pv?Math.max(...pv.map(r=>Number(r.w)||0)):0;
+    h+=`<div class="panel">
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+        <div><div style="font-size:15px">${esc(l.name)}</div>
+        <div class="sub">${l.sets} × ${l.lo===l.hi?l.lo:l.lo+"–"+l.hi}</div></div>
+        ${done&&l.jump?`<div class="mono" style="background:var(--rule);border-radius:3px;
+          padding:4px 8px;font-size:10px;color:var(--ochre);text-align:right">
+          add ${l.jump} kg<br><span style="color:var(--muted)">→ ${top+l.jump} kg</span></div>`:""}
+      </div>`;
+    for(let i=0;i<l.sets;i++){
+      const r=(rec[l.id]||[])[i]||{}, p=(pv||[])[i]||{};
+      h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+        <span class="mono" style="font-size:11px;color:var(--faint);width:18px">${i+1}</span>
+        <input class="cell" inputmode="decimal" value="${r.w??""}" placeholder="${p.w??""}"
+          data-lift="${l.id}" data-set="${i}" data-f="w">
+        <input class="cell" inputmode="decimal" value="${r.r??""}" placeholder="${p.r??""}"
+          data-lift="${l.id}" data-set="${i}" data-f="r">
+      </div>`;
+    }
+    if(last) h+=`<div class="mono" style="font-size:10px;color:var(--faint);margin-top:8px">
+      faint numbers = last session. beat one of them.</div>`;
+    h+=`</div>`;
+  });
+  h+=`<div class="mono" style="font-size:11px;color:var(--faint);text-align:center;margin-bottom:8px">
+    Saved the instant you type. No save button.</div>`;
+  return h;
+}
+
+function viewShop(){
+  const all=SHOP.flatMap(s=>s[1]), done=all.filter(i=>S.shopping[i]).length;
+  let h=`<div class="panel">
+    <div style="display:flex;justify-content:space-between">
+      <div class="eyebrow">${done} of ${all.length} in the trolley</div>
+      <button data-reset="1" style="color:var(--pencil);font-family:var(--mono);font-size:11px">reset week</button>
+    </div>
+    <div class="bar"><i style="width:${done/all.length*100}%"></i></div>
+    <div class="sub" style="margin-top:12px">Aldi own-brand covers nearly all of it — about £55 the first week, £45 after.</div>
+  </div>`;
+  SHOP.forEach(([sec,items])=>{
+    h+=`<div class="panel"><div class="eyebrow">${sec}</div>`;
+    items.forEach(i=>{
+      const on=!!S.shopping[i];
+      h+=`<button class="row" data-shop="${esc(i)}">
+        <span class="tick ${on?"on":""}">${on?"✓":""}</span>
+        <span style="font-size:14px" class="${on?"strike":""}">${esc(i)}</span></button>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`<div class="panel"><div class="eyebrow">Not on the list, on purpose</div>
+    <div style="font-size:14px;color:var(--muted);line-height:1.6">
+    Butter, coconut oil, 20% mince, cheddar, cream. Keeping these out of the trolley
+    is the single change from last time.</div></div>`;
+  return h;
+}
+
+function stats(){
+  const ds=Object.keys(S.weights).sort().filter(d=>d<=date);
+  if(!ds.length) return {avg:null,rate:null};
+  const last7=ds.slice(-7).map(d=>S.weights[d]);
+  const avg=last7.reduce((a,b)=>a+b,0)/last7.length;
+  let rate=null;
+  if(ds.length>=10){
+    const prev=ds.slice(-14,-7).map(d=>S.weights[d]);
+    if(prev.length>=3) rate=prev.reduce((a,b)=>a+b,0)/prev.length-avg;
+  }
+  return {avg,rate};
+}
+
+function sparkline(){
+  const ds=Object.keys(S.weights).sort().slice(-60);
+  if(ds.length<2) return "";
+  const vals=ds.map(d=>S.weights[d]);
+  const W=480,H=140,pad=8;
+  const min=Math.min(...vals,TARGET)-0.5, max=Math.max(...vals)+0.5;
+  const x=i=>pad+i*(W-2*pad)/(ds.length-1);
+  const y=v=>pad+(max-v)/(max-min)*(H-2*pad);
+  const pts=vals.map((v,i)=>x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
+  return `<div class="panel"><div class="eyebrow">Trend · last ${ds.length} weigh-ins</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:140px" preserveAspectRatio="none">
+      <line x1="0" y1="${y(TARGET)}" x2="${W}" y2="${y(TARGET)}"
+        stroke="var(--patina)" stroke-dasharray="4 4" stroke-width="1"/>
+      <polyline points="${pts}" fill="none" stroke="var(--pencil)" stroke-width="2"
+        stroke-linejoin="round"/>
+    </svg>
+    <div class="sub" style="display:flex;justify-content:space-between">
+      <span>${fmt(ds[0])}</span><span>target ${TARGET} kg</span><span>${fmt(ds[ds.length-1])}</span></div>
+  </div>`;
+}
+
+function viewLog(){
+  const {avg,rate}=stats();
+  const cur=avg??START, lost=START-cur;
+  const pct=Math.max(0,Math.min(100,lost/(START-TARGET)*100));
+  const note=rate==null?"":(rate>0.7?"Too fast — add 150–200 kcal. You're spending muscle."
+    :rate<0.15?"Stalled two weeks? Cut 150–200 kcal."
+    :"On target. 0.4–0.5 kg/week is the window.");
+
+  return `<div class="panel">
+    <div class="eyebrow">Weight for ${date===today()?"today":fmt(date)}</div>
+    <input class="cell" id="wIn" inputmode="decimal" placeholder="86.4"
+      style="font-size:22px;padding:14px" value="${S.weights[date]??""}">
+    <div class="mono" style="font-size:10px;color:var(--faint);text-align:center;margin-top:8px">
+      first thing, before food · use the arrows to back-fill a missed day</div>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">7-day average</div>
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span class="mono" id="avg" style="font-size:40px;line-height:1">${avg?avg.toFixed(1):"—"}</span>
+      <span class="sub">kg</span>
+      ${rate!=null?`<span style="margin-left:auto;text-align:right">
+        <div class="mono" style="font-size:15px;color:${rate>0.7?"var(--ochre)":rate<0.15?"var(--muted)":"var(--patina)"}">
+          ${rate>=0?"−":"+"}${Math.abs(rate).toFixed(2)}</div>
+        <div class="mono" style="font-size:9px;color:var(--muted);letter-spacing:.1em">KG / WEEK</div>
+      </span>`:""}
+    </div>
+    ${note?`<div class="sub" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--ruleSoft);line-height:1.6">${note}</div>`:""}
+  </div>
+
+  ${sparkline()}
+
+  <div class="panel">
+    <div class="eyebrow">${lost>0?lost.toFixed(1):"0.0"} kg down · ${Math.max(0,cur-TARGET).toFixed(1)} kg to go</div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div style="display:flex;justify-content:space-between;margin-top:16px">
+      ${MILESTONES.map(([kg,bf])=>{const hit=cur<=kg;return `<div style="text-align:center">
+        <div class="mono" style="font-size:13px;color:${hit?"var(--patina)":"var(--faint)"}">${kg}</div>
+        <div class="mono" style="font-size:9px;color:${hit?"var(--muted)":"var(--faint)"}">${bf}</div></div>`}).join("")}
+    </div>
+    <div class="sub" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--ruleSoft);line-height:1.6">
+      Bloods: baseline lipid panel before week 1, repeat at week 8–10.</div>
+  </div>
+
+  <div class="panel">
+    <div class="eyebrow">Backup</div>
+    <div class="sub" style="line-height:1.6;margin-bottom:12px">
+      Everything lives on this phone only. Back up before changing phones or clearing Safari.</div>
+    <div style="display:flex;gap:8px">
+      <button class="ghost" id="exp" style="flex:1;padding:12px">Export file</button>
+      <button class="ghost" id="impBtn" style="flex:1;padding:12px">Restore</button>
+    </div>
+    <input type="file" id="imp" accept="application/json" style="display:none">
+  </div>`;
+}
+
+/* ─────────── render + events ─────────── */
+function render(){
+  document.getElementById("dlabel").textContent = date===today()?"Today":fmt(date);
+  document.getElementById("dsub").textContent   = date===today()?fmt(date):"";
+  document.getElementById("jump").style.visibility = date===today()?"hidden":"visible";
+
+  document.getElementById("tabs").innerHTML =
+    ["today","train","shop","log"].map(t=>
+      `<button data-tab="${t}" class="${t===tab?"on":""}">${t}</button>`).join("");
+
+  const v=document.getElementById("view");
+  v.innerHTML = tab==="today"?viewToday():tab==="train"?viewTrain():tab==="shop"?viewShop():viewLog();
+  window.scrollTo(0,0);
+  wire();
+}
+
+function wire(){
+  if(tab==="log"){
+    const w=document.getElementById("wIn");
+    w.addEventListener("input",()=>{
+      const v=parseFloat(w.value);
+      if(!w.value) delete S.weights[date];
+      else if(v>=40&&v<=200) S.weights[date]=v;
+      else return;
+      save();
+      const {avg}=stats();
+      document.getElementById("avg").textContent = avg?avg.toFixed(1):"—";
+    });
+    w.addEventListener("blur",render);
+    document.getElementById("exp").onclick=()=>{
+      const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download="the-cut-"+today()+".json"; a.click();
+    };
+    document.getElementById("impBtn").onclick=()=>document.getElementById("imp").click();
+    document.getElementById("imp").onchange=e=>{
+      const f=e.target.files[0]; if(!f) return;
+      const r=new FileReader();
+      r.onload=()=>{ try{ S=Object.assign(S,JSON.parse(r.result)); save(); render(); }
+        catch(err){ setStatus("bad file","var(--pencil)"); } };
+      r.readAsText(f);
+    };
+  }
+
+  /* lift inputs — write straight to storage on every keystroke */
+  document.querySelectorAll("[data-lift]").forEach(el=>{
+    el.addEventListener("input",()=>{
+      const id=el.dataset.lift, i=+el.dataset.set, f=el.dataset.f;
+      if(!S.sessions[date]||S.sessions[date].day!==pick) S.sessions[date]={day:pick,entries:{}};
+      const e=S.sessions[date].entries;
+      if(!e[id]) e[id]=[];
+      e[id][i]=Object.assign({},e[id][i],{[f]:el.value});
+      save();
+    });
+  });
+
+  document.getElementById("view").addEventListener("click",e=>{
+    const t=e.target.closest("[data-meal],[data-open],[data-shop],[data-pick],[data-go],[data-reset],[data-clear]");
+    if(!t) return;
+    const d=t.dataset;
+    if(d.meal!==undefined){ const m=S.meals[date]||(S.meals[date]={}); m[d.meal]=!m[d.meal]; save(); render(); }
+    else if(d.open!==undefined){ open=open===d.open?null:d.open; render(); }
+    else if(d.shop!==undefined){ S.shopping[d.shop]=!S.shopping[d.shop]; save(); render(); }
+    else if(d.pick!==undefined){ pick=d.pick; render(); }
+    else if(d.go!==undefined){ tab=d.go; pick=null; render(); }
+    else if(d.reset!==undefined){ S.shopping={}; save(); render(); }
+    else if(d.clear!==undefined){ delete S.sessions[date]; save(); render(); }
+  });
+}
+
+document.getElementById("tabs").addEventListener("click",e=>{
+  const b=e.target.closest("[data-tab]"); if(!b) return;
+  tab=b.dataset.tab; pick=null; open=null; render();
+});
+document.getElementById("prev").onclick=()=>{date=shift(date,-1);pick=null;render()};
+document.getElementById("next").onclick=()=>{date=shift(date,1);pick=null;render()};
+document.getElementById("jump").onclick=()=>{date=today();pick=null;render()};
+
+/* belt and braces — write again whenever the app is backgrounded */
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") save(); });
+window.addEventListener("pagehide",save);
+
+render();
+
+/* offline: cache the app on first load, then run without a network */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
