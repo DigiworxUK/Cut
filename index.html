@@ -412,7 +412,7 @@ function viewLog(){
 }
 
 /* ─────────── render + events ─────────── */
-function render(){
+function render(toTop){
   document.getElementById("dlabel").textContent = date===today()?"Today":fmt(date);
   document.getElementById("dsub").textContent   = date===today()?fmt(date):"";
   document.getElementById("jump").style.visibility = date===today()?"hidden":"visible";
@@ -422,8 +422,9 @@ function render(){
       `<button data-tab="${t}" class="${t===tab?"on":""}">${t}</button>`).join("");
 
   const v=document.getElementById("view");
+  const keep=window.scrollY;
   v.innerHTML = tab==="today"?viewToday():tab==="train"?viewTrain():tab==="shop"?viewShop():viewLog();
-  window.scrollTo(0,0);
+  if(toTop) window.scrollTo(0,0); else window.scrollTo(0,keep);
   wire();
 }
 
@@ -439,7 +440,7 @@ function wire(){
       const {avg}=stats();
       document.getElementById("avg").textContent = avg?avg.toFixed(1):"—";
     });
-    w.addEventListener("blur",render);
+    w.addEventListener("change",()=>render());
     document.getElementById("exp").onclick=()=>{
       const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
       const a=document.createElement("a");
@@ -468,33 +469,36 @@ function wire(){
     });
   });
 
-  document.getElementById("view").addEventListener("click",e=>{
-    const t=e.target.closest("[data-meal],[data-open],[data-shop],[data-pick],[data-go],[data-reset],[data-clear]");
-    if(!t) return;
-    const d=t.dataset;
-    if(d.meal!==undefined){ const m=S.meals[date]||(S.meals[date]={}); m[d.meal]=!m[d.meal]; save(); render(); }
-    else if(d.open!==undefined){ open=open===d.open?null:d.open; render(); }
-    else if(d.shop!==undefined){ S.shopping[d.shop]=!S.shopping[d.shop]; save(); render(); }
-    else if(d.pick!==undefined){ pick=d.pick; render(); }
-    else if(d.go!==undefined){ tab=d.go; pick=null; render(); }
-    else if(d.reset!==undefined){ S.shopping={}; save(); render(); }
-    else if(d.clear!==undefined){ delete S.sessions[date]; save(); render(); }
-  });
 }
+
+/* attached ONCE — re-attaching per render made every tap fire N times,
+   which cancelled itself out and looked like a tick you couldn't clear */
+document.getElementById("view").addEventListener("click",e=>{
+  const t=e.target.closest("[data-meal],[data-open],[data-shop],[data-pick],[data-go],[data-reset],[data-clear]");
+  if(!t) return;
+  const d=t.dataset;
+  if(d.meal!==undefined){ const m=S.meals[date]||(S.meals[date]={}); m[d.meal]=!m[d.meal]; save(); render(); }
+  else if(d.open!==undefined){ open=open===d.open?null:d.open; render(); }
+  else if(d.shop!==undefined){ S.shopping[d.shop]=!S.shopping[d.shop]; save(); render(); }
+  else if(d.pick!==undefined){ pick=d.pick; render(true); }
+  else if(d.go!==undefined){ tab=d.go; pick=null; render(true); }
+  else if(d.reset!==undefined){ S.shopping={}; save(); render(true); }
+  else if(d.clear!==undefined){ delete S.sessions[date]; save(); render(true); }
+});
 
 document.getElementById("tabs").addEventListener("click",e=>{
   const b=e.target.closest("[data-tab]"); if(!b) return;
-  tab=b.dataset.tab; pick=null; open=null; render();
+  tab=b.dataset.tab; pick=null; open=null; render(true);
 });
-document.getElementById("prev").onclick=()=>{date=shift(date,-1);pick=null;render()};
-document.getElementById("next").onclick=()=>{date=shift(date,1);pick=null;render()};
-document.getElementById("jump").onclick=()=>{date=today();pick=null;render()};
+document.getElementById("prev").onclick=()=>{date=shift(date,-1);pick=null;render(true)};
+document.getElementById("next").onclick=()=>{date=shift(date,1);pick=null;render(true)};
+document.getElementById("jump").onclick=()=>{date=today();pick=null;render(true)};
 
 /* belt and braces — write again whenever the app is backgrounded */
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") save(); });
 window.addEventListener("pagehide",save);
 
-render();
+render(true);
 
 /* offline: cache the app on first load, then run without a network */
 if("serviceWorker" in navigator){
