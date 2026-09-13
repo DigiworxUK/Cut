@@ -42,6 +42,23 @@
   .sub{font-family:var(--mono);font-size:11px;color:var(--muted)}
   .bar{height:3px;background:var(--rule);border-radius:2px;overflow:hidden}
   .bar > i{display:block;height:3px;background:var(--patina);transition:width .25s}
+  .colhead{flex:1;font-family:var(--mono);font-size:9px;letter-spacing:.18em;
+    color:var(--faint);text-align:center}
+  .cellwrap{position:relative;flex:1;display:block}
+  .cellwrap em{position:absolute;right:6px;top:11px;font-family:var(--mono);font-size:9px;
+    font-style:normal;color:var(--faint);pointer-events:none}
+  .sheet{position:fixed;inset:0;background:rgba(10,11,14,.96);z-index:20;display:none;
+    flex-direction:column;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+  .sheet.on{display:flex}
+  .sheet .inner{max-width:560px;margin:0 auto;width:100%;overflow-y:auto;padding-bottom:24px}
+  #cam{width:100%;max-height:38vh;object-fit:cover;background:#000;border-radius:4px;
+    border:1px solid var(--rule)}
+  .res{width:100%;text-align:left;padding:12px 0;border-bottom:1px solid var(--ruleSoft)}
+  .searchbar{display:flex;gap:8px;margin:12px 0}
+  .searchbar input{flex:1;padding:12px;background:var(--ink);border:1px solid var(--rule);
+    border-radius:3px;color:var(--chalk);font-family:var(--mono)}
+  .pill{border:1px solid var(--rule);border-radius:3px;padding:10px 14px;
+    font-family:var(--mono);font-size:12px;color:var(--muted)}
   .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .cell{width:100%;padding:10px 6px;background:var(--ink);border:1px solid var(--rule);
     border-radius:3px;color:var(--chalk);font-family:var(--mono);text-align:center}
@@ -87,6 +104,22 @@
   <main id="view"></main>
 </div>
 <nav><div id="tabs"></div></nav>
+
+<div class="sheet" id="sheet">
+  <div class="inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+      <span class="mono" style="font-size:14px">Add food</span>
+      <button class="pill" id="closeSheet" style="color:var(--pencil)">close</button>
+    </div>
+    <video id="cam" playsinline muted></video>
+    <div class="mono" id="scanMsg" style="font-size:11px;color:var(--faint);padding:8px 0;text-align:center"></div>
+    <div class="searchbar">
+      <input id="q" placeholder="or search by name" autocomplete="off">
+      <button class="pill" id="goSearch">find</button>
+    </div>
+    <div id="results"></div>
+  </div>
+</div>
 
 <script>
 /* ─────────── plan data ─────────── */
@@ -152,7 +185,7 @@ const MILESTONES=[[86,"25%"],[81,"20%"],[77,"16%"],[74,"13%"],[72,"10%"]];
 
 /* ─────────── storage ─────────── */
 const KEY="thecut.v1";
-let S={weights:{},sessions:{},shopping:{},meals:{}};
+let S={weights:{},sessions:{},shopping:{},meals:{},extra:{}};
 try{ const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(S,JSON.parse(raw)); }
 catch(e){ }
 
@@ -189,7 +222,10 @@ function viewToday(){
   const plan=MEALS[sess?"train":"rest"];
   const tick=S.meals[date]||{};
   const eaten=plan.items.filter(i=>tick[i.id]);
-  const gp=eaten.reduce((a,i)=>a+i.p,0), gk=eaten.reduce((a,i)=>a+i.kcal,0);
+  const ex=S.extra[date]||[];
+  const gp=eaten.reduce((a,i)=>a+i.p,0)+ex.reduce((a,i)=>a+i.p,0);
+  const gk=eaten.reduce((a,i)=>a+i.kcal,0)+ex.reduce((a,i)=>a+i.kcal,0);
+  const gsat=ex.reduce((a,i)=>a+(i.sat||0),0);
   const label=sess?("Lift day — "+sess):(ride?"Ride day":"Rest day");
 
   let h=`<div class="panel">
@@ -207,7 +243,7 @@ function viewToday(){
   </div>
 
   <div class="panel">
-    <div class="eyebrow">${gp}/${plan.p} g protein · ${gk}/${plan.kcal} kcal</div>
+    <div class="eyebrow">${Math.round(gp)}/${plan.p} g protein · ${Math.round(gk)}/${plan.kcal} kcal</div>
     <div class="bar"><i style="width:${Math.min(100,gp/plan.p*100)}%"></i></div>`;
 
   plan.items.forEach(i=>{
@@ -231,6 +267,27 @@ function viewToday(){
     </div>`;
   });
   h+=`</div>`;
+
+  h+=`<div class="panel">
+    <div class="eyebrow">Anything else you ate</div>`;
+  if(!ex.length){
+    h+=`<div class="sub" style="line-height:1.6;margin-bottom:12px">
+      Nothing logged. Scan a barcode or search to add something outside the plan.</div>`;
+  } else {
+    ex.forEach((i,n)=>{
+      h+=`<div class="row" style="gap:8px">
+        <span style="flex:1">
+          <span style="display:block;font-size:14px">${esc(i.n)}</span>
+          <span class="sub" style="display:block">${i.g} g · ${i.p}g P · ${i.kcal} kcal${i.sat?` · ${i.sat}g sat`:""}</span>
+        </span>
+        <button data-del="${n}" class="mono" style="color:var(--pencil);font-size:16px;padding:0 8px">×</button>
+      </div>`;
+    });
+    if(gsat) h+=`<div class="sub" style="margin-top:12px;color:${gsat>25?"var(--pencil)":"var(--muted)"}">
+      Saturated fat from these: ${gsat.toFixed(1)} g${gsat>25?" — over the 25 g ceiling":""}</div>`;
+  }
+  h+=`<button class="pill" id="openScan" style="width:100%;margin-top:8px;padding:14px">Scan or search</button>
+  </div>`;
 
   if(sess) h+=`<button class="cta" style="background:var(--pencil)" data-go="train">Open session ${sess}</button>`;
   if(ride) h+=`<div class="panel"><div class="eyebrow">Ride</div>
@@ -277,14 +334,22 @@ function viewTrain(){
           padding:4px 8px;font-size:10px;color:var(--ochre);text-align:right">
           add ${l.jump} kg<br><span style="color:var(--muted)">→ ${top+l.jump} kg</span></div>`:""}
       </div>`;
+    const unit = l.id==="pl" ? "SECONDS" : "REPS";
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:0 0 4px">
+      <span style="width:18px"></span>
+      <span class="colhead">${l.id==="pl"?"—":"KG"}</span>
+      <span class="colhead">${unit}</span>
+    </div>`;
     for(let i=0;i<l.sets;i++){
       const r=(rec[l.id]||[])[i]||{}, p=(pv||[])[i]||{};
       h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
         <span class="mono" style="font-size:11px;color:var(--faint);width:18px">${i+1}</span>
-        <input class="cell" inputmode="decimal" value="${r.w??""}" placeholder="${p.w??""}"
-          data-lift="${l.id}" data-set="${i}" data-f="w">
-        <input class="cell" inputmode="decimal" value="${r.r??""}" placeholder="${p.r??""}"
-          data-lift="${l.id}" data-set="${i}" data-f="r">
+        <span class="cellwrap"><input class="cell" inputmode="decimal" value="${r.w??""}"
+          placeholder="${p.w??""}" aria-label="Set ${i+1} weight in kg"
+          data-lift="${l.id}" data-set="${i}" data-f="w"><em>kg</em></span>
+        <span class="cellwrap"><input class="cell" inputmode="decimal" value="${r.r??""}"
+          placeholder="${p.r??""}" aria-label="Set ${i+1} ${unit.toLowerCase()}"
+          data-lift="${l.id}" data-set="${i}" data-f="r"><em>${l.id==="pl"?"sec":"reps"}</em></span>
       </div>`;
     }
     if(last) h+=`<div class="mono" style="font-size:10px;color:var(--faint);margin-top:8px">
@@ -459,6 +524,12 @@ function wire(){
     };
   }
 
+  const scanBtn=document.getElementById("openScan");
+  if(scanBtn) scanBtn.onclick=openSheet;
+  document.querySelectorAll("[data-del]").forEach(b=>{
+    b.onclick=()=>{ (S.extra[date]||[]).splice(+b.dataset.del,1); save(); render(); };
+  });
+
   /* lift inputs — write straight to storage on every keystroke */
   document.querySelectorAll("[data-lift]").forEach(el=>{
     el.addEventListener("input",()=>{
@@ -499,6 +570,142 @@ document.getElementById("jump").onclick=()=>{date=today();pick=null;render(true)
 /* belt and braces — write again whenever the app is backgrounded */
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") save(); });
 window.addEventListener("pagehide",save);
+
+/* ─────────── barcode scan + Open Food Facts ─────────── */
+const OFF="https://world.openfoodfacts.org";
+let stream=null, scanning=false, pending=null;
+
+const msg=t=>{ const e=document.getElementById("scanMsg"); if(e) e.textContent=t; };
+
+async function getDetector(){
+  if(window.__BD) return window.__BD;
+  if("BarcodeDetector" in window){
+    window.__BD=new window.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e"]});
+    return window.__BD;
+  }
+  /* Safari on iOS has no BarcodeDetector — load the wasm polyfill on demand */
+  msg("loading scanner…");
+  const m=await import("https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/es/pure.min.js");
+  window.__BD=new m.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e"]});
+  return window.__BD;
+}
+
+async function openSheet(){
+  document.getElementById("sheet").classList.add("on");
+  document.getElementById("results").innerHTML="";
+  document.getElementById("q").value="";
+  msg("point the camera at a barcode");
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+    const v=document.getElementById("cam");
+    v.srcObject=stream; await v.play();
+    const det=await getDetector();
+    msg("point the camera at a barcode");
+    scanning=true;
+    const loop=async()=>{
+      if(!scanning) return;
+      try{
+        const codes=await det.detect(v);
+        if(codes&&codes.length){ scanning=false; lookup(codes[0].rawValue); return; }
+      }catch(e){}
+      setTimeout(loop,250);
+    };
+    loop();
+  }catch(e){
+    msg("no camera — use the search box below");
+  }
+}
+
+function closeSheet(){
+  scanning=false;
+  document.getElementById("sheet").classList.remove("on");
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  const v=document.getElementById("cam"); if(v) v.srcObject=null;
+}
+
+function macros(nut,g){
+  const per=k=>Number(nut[k+"_100g"]||0)*g/100;
+  return {
+    p:+per("proteins").toFixed(1),
+    kcal:Math.round(Number(nut["energy-kcal_100g"]||0)*g/100),
+    c:+per("carbohydrates").toFixed(1),
+    f:+per("fat").toFixed(1),
+    sat:+(Number(nut["saturated-fat_100g"]||0)*g/100).toFixed(1),
+  };
+}
+
+async function lookup(code){
+  msg("looking up "+code+"…");
+  try{
+    const r=await fetch(`${OFF}/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,brands,nutriments`);
+    const j=await r.json();
+    if(!j.product||!j.product.nutriments){ msg("not in Open Food Facts — try the search box"); scanning=true; return; }
+    const name=[j.product.brands,j.product.product_name].filter(Boolean).join(" ").trim()||code;
+    showOne(name,j.product.nutriments);
+    msg("found it");
+  }catch(e){ msg("lookup failed — check your connection"); scanning=true; }
+}
+
+async function search(){
+  const q=document.getElementById("q").value.trim();
+  if(!q) return;
+  msg("searching…");
+  try{
+    const r=await fetch(`${OFF}/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,brands,nutriments`);
+    const j=await r.json();
+    const hits=(j.products||[]).filter(p=>p.nutriments&&p.nutriments["proteins_100g"]!=null);
+    if(!hits.length){ msg("nothing found"); return; }
+    msg(hits.length+" results — per 100 g");
+    document.getElementById("results").innerHTML=hits.map((p,i)=>{
+      const n=[p.brands,p.product_name].filter(Boolean).join(" ").trim()||"unnamed";
+      const nu=p.nutriments;
+      return `<button class="res" data-hit="${i}">
+        <span style="display:block;font-size:14px">${esc(n)}</span>
+        <span class="sub" style="display:block">${Math.round(nu["energy-kcal_100g"]||0)} kcal · ${(+nu["proteins_100g"]||0).toFixed(1)}g P · ${(+nu["saturated-fat_100g"]||0).toFixed(1)}g sat</span>
+      </button>`;
+    }).join("");
+    window.__hits=hits.map(p=>({n:[p.brands,p.product_name].filter(Boolean).join(" ").trim()||"unnamed",nut:p.nutriments}));
+  }catch(e){ msg("search failed — check your connection"); }
+}
+
+function showOne(name,nut){
+  window.__hits=[{n:name,nut}];
+  document.getElementById("results").innerHTML=`<button class="res" data-hit="0">
+    <span style="display:block;font-size:14px">${esc(name)}</span>
+    <span class="sub" style="display:block">${Math.round(nut["energy-kcal_100g"]||0)} kcal · ${(+nut["proteins_100g"]||0).toFixed(1)}g P per 100 g</span>
+  </button>`;
+}
+
+function askGrams(hit){
+  pending=hit;
+  document.getElementById("results").innerHTML=`
+    <div class="panel" style="margin-top:8px">
+      <div style="font-size:15px;margin-bottom:12px">${esc(hit.n)}</div>
+      <div class="searchbar">
+        <input id="grams" inputmode="decimal" placeholder="grams eaten" autocomplete="off">
+        <button class="pill" id="addIt" style="color:var(--patina)">add</button>
+      </div>
+      <div class="sub">Weigh it. Portion guesses are where tracking goes wrong.</div>
+    </div>`;
+  document.getElementById("grams").focus();
+}
+
+function commitFood(){
+  const g=parseFloat(document.getElementById("grams").value);
+  if(!g||g<=0||!pending) return;
+  const m=macros(pending.nut,g);
+  const list=S.extra[date]||(S.extra[date]=[]);
+  list.push({n:pending.n,g:Math.round(g),...m});
+  save(); pending=null; closeSheet(); render();
+}
+
+document.getElementById("closeSheet").onclick=closeSheet;
+document.getElementById("goSearch").onclick=search;
+document.getElementById("q").addEventListener("keydown",e=>{ if(e.key==="Enter") search(); });
+document.getElementById("results").addEventListener("click",e=>{
+  const h=e.target.closest("[data-hit]"); if(h){ askGrams(window.__hits[+h.dataset.hit]); return; }
+  if(e.target.id==="addIt") commitFood();
+});
 
 render(true);
 

@@ -268,5 +268,49 @@ const saved = store => JSON.parse(store["thecut.v1"] || "{}");
   ok("service worker caches index.html", sw.includes("./index.html"));
 }
 
+
+
+/* ── 13. food logging: macro maths + totals ── */
+{
+  console.log("\nFood logging");
+  const { w, d, store } = boot("2026-08-31T09:00:00");
+  ok("scan button present", !!d.getElementById("openScan"));
+  ok("sheet exists but hidden", d.getElementById("sheet") && !d.getElementById("sheet").classList.contains("on"));
+
+  // seed an extra item as the scanner would, then reload
+  const seeded = JSON.stringify({ weights:{}, sessions:{}, shopping:{}, meals:{},
+    extra:{ "2026-08-31":[{n:"Test cheddar",g:50,p:12.5,kcal:208,c:0.1,f:17.4,sat:10.9}] } });
+  const { JSDOM } = require("jsdom");
+  const dom2 = new JSDOM(require("fs").readFileSync(HTML,"utf8"), {
+    runScripts:"dangerously", pretendToBeVisual:true, url:"https://x.github.io/cut/",
+    beforeParse(win){
+      const st={"thecut.v1":seeded};
+      Object.defineProperty(win,"localStorage",{value:{getItem:k=>(k in st?st[k]:null),setItem:(k,v)=>{st[k]=String(v)},removeItem:k=>{delete st[k]}}});
+      const R=win.Date;
+      class D extends R{ constructor(...a){ return a.length?new R(...a):new R("2026-08-31T09:00:00"); } static now(){ return new R("2026-08-31T09:00:00").getTime(); } }
+      win.Date=D;
+    },
+  });
+  const t = dom2.window.document.getElementById("view").textContent;
+  ok("extra item listed with grams", t.includes("Test cheddar") && t.includes("50 g"));
+  ok("counts toward protein total", /\b13\/170 G PROTEIN/i.test(t), t.match(/\d+\/170 G PROTEIN/i));
+  ok("surfaces saturated fat", t.includes("10.9"));
+  ok("delete control rendered", !!dom2.window.document.querySelector("[data-del]"));
+
+  // deleting removes it
+  const del = dom2.window.document.querySelector("[data-del]");
+  del.dispatchEvent(new dom2.window.MouseEvent("click",{bubbles:true}));
+  ok("delete removes the item", !dom2.window.document.getElementById("view").textContent.includes("Test cheddar"));
+}
+
+/* ── 14. offline-dependency honesty ── */
+{
+  console.log("\nNetwork boundaries");
+  const html = fs.readFileSync(HTML, "utf8");
+  ok("scanner polyfill loaded lazily, not at boot", !/<script[^>]+type="module"/.test(html) && html.includes('await import('));
+  ok("uses Open Food Facts v2 product endpoint", html.includes("/api/v2/product/"));
+  ok("lookup failures are surfaced", html.includes("check your connection"));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
