@@ -114,7 +114,7 @@
     <video id="cam" playsinline muted></video>
     <div class="mono" id="scanMsg" style="font-size:11px;color:var(--faint);padding:8px 0;text-align:center"></div>
     <div class="searchbar">
-      <input id="q" placeholder="or search by name" autocomplete="off">
+      <input id="q" placeholder="search name, or type barcode" autocomplete="off">
       <button class="pill" id="goSearch">find</button>
     </div>
     <div id="results"></div>
@@ -138,6 +138,13 @@ const SESSIONS={
   {id:"chin",name:"Chin-up",sets:4,lo:5,hi:10,jump:2.5},
   {id:"lun",name:"Walking lunge (per leg)",sets:3,lo:10,hi:10,jump:2.5},
   {id:"fp",name:"Face pull",sets:3,lo:15,hi:15,jump:2.5}]},
+ D:{name:"Accessories + 4x4",lifts:[
+  {id:"lat",name:"Lateral raise (per hand)",sets:3,lo:12,hi:12,jump:1.25},
+  {id:"rdf",name:"Rear delt fly (per hand)",sets:3,lo:15,hi:15,jump:1.25},
+  {id:"calf",name:"Standing calf raise",sets:4,lo:12,hi:12,jump:5},
+  {id:"curl",name:"Barbell curl",sets:3,lo:10,hi:10,jump:2.5},
+  {id:"push",name:"Tricep pushdown",sets:3,lo:12,hi:12,jump:2.5},
+  {id:"vo2",name:"4x4 intervals — bike (min hard)",sets:4,lo:4,hi:4,jump:0}]},
  C:{name:"Full body C",lifts:[
   {id:"fsq",name:"Front / goblet squat",sets:4,lo:8,hi:10,jump:5},
   {id:"idb",name:"Incline dumbbell press",sets:4,lo:8,hi:10,jump:2.5},
@@ -145,7 +152,7 @@ const SESSIONS={
   {id:"ht",name:"Hip thrust",sets:3,lo:10,hi:12,jump:5},
   {id:"arm",name:"Curl + pushdown",sets:3,lo:12,hi:12,jump:2.5}]}
 };
-const DAY_MAP={1:"A",3:"B",5:"C"}, RIDE=[2,4,6];
+const DAY_MAP={1:"A",3:"B",4:"D",5:"C"}, RIDE=[2,6];
 
 const MEALS={
  train:{kcal:2350,p:170,c:240,f:75,items:[
@@ -160,18 +167,18 @@ const MEALS={
   {id:"t4",when:"Dinner",name:"Salmon, potatoes, greens",p:47,kcal:700,ing:[
     ["Salmon fillet","160 g"],["Potatoes","300 g"],
     ["Broccoli or green beans","200 g"],["Olive oil","8 g (2 tsp)"]]}]},
- rest:{kcal:1950,p:170,c:120,f:88,items:[
+ rest:{kcal:1950,p:170,c:160,f:70,items:[
   {id:"r1",when:"Breakfast",name:"Skyr, oats, berries, nuts",p:35,kcal:435,ing:[
     ["0% skyr / Greek yoghurt","250 g"],["Porridge oats","40 g"],
-    ["Frozen berries","100 g"],["Mixed nuts","15 g"]]},
+    ["Frozen berries","100 g"],["Mixed nuts","10 g"]]},
   {id:"r2",when:"Lunch",name:"Chicken salad, beans, avocado",p:55,kcal:620,ing:[
     ["Chicken breast, raw","200 g"],["Butter beans, drained","150 g"],
-    ["Avocado","75 g (half)"],["Salad veg","200 g"],["Olive oil","10 g"]]},
+    ["Avocado","50 g"],["Salad veg","200 g"],["Olive oil","8 g"]]},
   {id:"r3",when:"Snack",name:"Whey + almonds",p:29,kcal:265,ing:[
-    ["Whey protein","30 g (1 scoop)"],["Almonds","25 g"]]},
-  {id:"r4",when:"Dinner",name:"Steak or mackerel, veg, lentils",p:54,kcal:550,ing:[
+    ["Whey protein","30 g (1 scoop)"],["Almonds","20 g"]]},
+  {id:"r4",when:"Dinner",name:"Steak or mackerel, veg, lentils, potatoes",p:54,kcal:675,ing:[
     ["Sirloin steak","150 g (or mackerel 130 g)"],["Roasted veg","250 g"],
-    ["Lentils, cooked","100 g"],["Olive oil","8 g (2 tsp)"]]}]}
+    ["Lentils, cooked","100 g"],["Potatoes","200 g"],["Olive oil","5 g"]]}]}
 };
 
 const SHOP=[
@@ -219,14 +226,14 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 /* ─────────── views ─────────── */
 function viewToday(){
   const sess=DAY_MAP[dow(date)]||null, ride=RIDE.includes(dow(date));
-  const plan=MEALS[sess?"train":"rest"];
+  const plan=MEALS[(sess&&sess!=="D")?"train":"rest"];
   const tick=S.meals[date]||{};
   const eaten=plan.items.filter(i=>tick[i.id]);
   const ex=S.extra[date]||[];
   const gp=eaten.reduce((a,i)=>a+i.p,0)+ex.reduce((a,i)=>a+i.p,0);
   const gk=eaten.reduce((a,i)=>a+i.kcal,0)+ex.reduce((a,i)=>a+i.kcal,0);
   const gsat=ex.reduce((a,i)=>a+(i.sat||0),0);
-  const label=sess?("Lift day — "+sess):(ride?"Ride day":"Rest day");
+  const label=sess==="D"?"Accessories + 4x4":sess?("Lift day — "+sess):(ride?"Ride day":"Rest day");
 
   let h=`<div class="panel">
     <div style="display:flex;justify-content:space-between;margin-bottom:16px">
@@ -292,25 +299,48 @@ function viewToday(){
   if(sess) h+=`<button class="cta" style="background:var(--pencil)" data-go="train">Open session ${sess}</button>`;
   if(ride) h+=`<div class="panel"><div class="eyebrow">Ride</div>
     <div style="font-size:14px">45–90 min, conversational pace.</div>
-    <div class="sub" style="margin-top:4px">If you can't talk in full sentences, you're going too hard.</div></div>`;
+    <div class="sub" style="margin-top:4px">If you can't talk in full sentences, you're going too hard.</div>
+    <div class="sub" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--ruleSoft);line-height:1.6">
+      Over 90 min: eat 60 g of carbs an hour from the one-hour mark. One item every 30–40 min.
+      Banana 25 g · 2 slices malt loaf 40 g · flapjack 30 g.</div></div>`;
   return h;
 }
 
+/* Older builds stored ONE session per day ({day,entries}), so switching
+   A→B overwrote whatever you had already logged. Now each day holds a slot
+   per session letter. Existing data is migrated in place on load. */
+function migrate(){
+  let changed=false;
+  Object.keys(S.sessions||{}).forEach(d=>{
+    const v=S.sessions[d];
+    if(v&&v.day&&v.entries){ S.sessions[d]={[v.day]:{entries:v.entries}}; changed=true; }
+  });
+  if(changed) save();
+}
+
+function entriesFor(d,day){
+  const slot=S.sessions[d]&&S.sessions[d][day];
+  return (slot&&slot.entries)||{};
+}
+
 function lastSession(day){
-  const ds=Object.keys(S.sessions).filter(d=>d<date&&S.sessions[d].day===day).sort();
+  const ds=Object.keys(S.sessions)
+    .filter(d=>d<date&&S.sessions[d]&&S.sessions[d][day]&&Object.keys(entriesFor(d,day)).length)
+    .sort();
   const d=ds[ds.length-1];
-  return d?{date:d,entries:S.sessions[d].entries}:null;
+  return d?{date:d,entries:entriesFor(d,day)}:null;
 }
 
 function viewTrain(){
   const auto=DAY_MAP[dow(date)]||null;
-  const cur=pick||(S.sessions[date]&&S.sessions[date].day)||auto||"A";
+  const logged=Object.keys(S.sessions[date]||{});
+  const cur=pick||logged[0]||auto||"A";
   pick=cur;
   const s=SESSIONS[cur], last=lastSession(cur);
-  const rec=S.sessions[date]&&S.sessions[date].day===cur?S.sessions[date].entries:{};
+  const rec=entriesFor(date,cur);
 
   let h=`<div style="display:flex;gap:8px;margin-bottom:16px">`;
-  ["A","B","C"].forEach(k=>{
+  ["A","B","C","D"].forEach(k=>{
     h+=`<button data-pick="${k}" style="flex:1;padding:12px 0;border-radius:4px;
       font-family:var(--mono);font-size:13px;
       background:${k===cur?"var(--panel)":"transparent"};
@@ -324,8 +354,9 @@ function viewTrain(){
 
   s.lifts.forEach(l=>{
     const pv=last&&last.entries[l.id];
-    const done=pv&&pv.length>=l.sets&&pv.every(r=>Number(r.r)>=l.hi);
-    const top=pv?Math.max(...pv.map(r=>Number(r.w)||0)):0;
+    const rows=(pv||[]).map(r=>r||{});
+    const done=rows.length>=l.sets&&rows.filter(r=>r.r!=null&&r.r!=="").length>=l.sets&&rows.every(r=>Number(r.r)>=l.hi);
+    const top=rows.length?Math.max(...rows.map(r=>Number(r.w)||0)):0;
     h+=`<div class="panel">
       <div style="display:flex;justify-content:space-between;margin-bottom:12px">
         <div><div style="font-size:15px">${esc(l.name)}</div>
@@ -334,14 +365,15 @@ function viewTrain(){
           padding:4px 8px;font-size:10px;color:var(--ochre);text-align:right">
           add ${l.jump} kg<br><span style="color:var(--muted)">→ ${top+l.jump} kg</span></div>`:""}
       </div>`;
-    const unit = l.id==="pl" ? "SECONDS" : "REPS";
+    const noload = l.id==="pl"||l.id==="vo2";
+    const unit = l.id==="pl" ? "SECONDS" : l.id==="vo2" ? "MINUTES" : "REPS";
     h+=`<div style="display:flex;align-items:center;gap:8px;padding:0 0 4px">
       <span style="width:18px"></span>
-      <span class="colhead">${l.id==="pl"?"—":"KG"}</span>
+      <span class="colhead">${noload?"—":"KG"}</span>
       <span class="colhead">${unit}</span>
     </div>`;
     for(let i=0;i<l.sets;i++){
-      const r=(rec[l.id]||[])[i]||{}, p=(pv||[])[i]||{};
+      const r=(rec[l.id]||[])[i]||{}, p=rows[i]||{};
       h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
         <span class="mono" style="font-size:11px;color:var(--faint);width:18px">${i+1}</span>
         <span class="cellwrap"><input class="cell" inputmode="decimal" value="${r.w??""}"
@@ -349,13 +381,16 @@ function viewTrain(){
           data-lift="${l.id}" data-set="${i}" data-f="w"><em>kg</em></span>
         <span class="cellwrap"><input class="cell" inputmode="decimal" value="${r.r??""}"
           placeholder="${p.r??""}" aria-label="Set ${i+1} ${unit.toLowerCase()}"
-          data-lift="${l.id}" data-set="${i}" data-f="r"><em>${l.id==="pl"?"sec":"reps"}</em></span>
+          data-lift="${l.id}" data-set="${i}" data-f="r"><em>${l.id==="pl"?"sec":l.id==="vo2"?"min":"reps"}</em></span>
       </div>`;
     }
     if(last) h+=`<div class="mono" style="font-size:10px;color:var(--faint);margin-top:8px">
       faint numbers = last session. beat one of them.</div>`;
     h+=`</div>`;
   });
+  if(cur==="D") h+=`<div class="panel"><div class="eyebrow">The 4x4</div>
+    <div class="sub" style="line-height:1.6">10 min warm-up, then 4 min hard / 3 min easy, four times, 5 min cool-down.
+    Near max heart rate by minute three of each interval. Log the minutes you actually held.</div></div>`;
   h+=`<div class="mono" style="font-size:11px;color:var(--faint);text-align:center;margin-bottom:8px">
     Saved the instant you type. No save button.</div>`;
   return h;
@@ -534,9 +569,13 @@ function wire(){
   document.querySelectorAll("[data-lift]").forEach(el=>{
     el.addEventListener("input",()=>{
       const id=el.dataset.lift, i=+el.dataset.set, f=el.dataset.f;
-      if(!S.sessions[date]||S.sessions[date].day!==pick) S.sessions[date]={day:pick,entries:{}};
-      const e=S.sessions[date].entries;
+      if(!S.sessions[date]) S.sessions[date]={};
+      if(!S.sessions[date][pick]) S.sessions[date][pick]={entries:{}};
+      const e=S.sessions[date][pick].entries;
       if(!e[id]) e[id]=[];
+      /* fill any gap so the array never goes sparse — JSON turns holes into
+         nulls, which used to blow up the whole Train tab after a reload */
+      for(let k=0;k<=i;k++) if(!e[id][k]) e[id][k]={};
       e[id][i]=Object.assign({},e[id][i],{[f]:el.value});
       save();
     });
@@ -556,7 +595,7 @@ document.getElementById("view").addEventListener("click",e=>{
   else if(d.pick!==undefined){ pick=d.pick; render(true); }
   else if(d.go!==undefined){ tab=d.go; pick=null; render(true); }
   else if(d.reset!==undefined){ S.shopping={}; save(); render(true); }
-  else if(d.clear!==undefined){ delete S.sessions[date]; save(); render(true); }
+  else if(d.clear!==undefined){ if(S.sessions[date]){ delete S.sessions[date][pick]; if(!Object.keys(S.sessions[date]).length) delete S.sessions[date]; } save(); render(true); }
 });
 
 document.getElementById("tabs").addEventListener("click",e=>{
@@ -577,16 +616,31 @@ let stream=null, scanning=false, pending=null;
 
 const msg=t=>{ const e=document.getElementById("scanMsg"); if(e) e.textContent=t; };
 
+const FORMATS=["ean_13","ean_8","upc_a","upc_e"];
+
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    const el=document.createElement("script");
+    el.src=src; el.async=true;
+    el.onload=res;
+    el.onerror=()=>rej(new Error("could not load "+src));
+    document.head.appendChild(el);
+  });
+}
+
 async function getDetector(){
   if(window.__BD) return window.__BD;
   if("BarcodeDetector" in window){
-    window.__BD=new window.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e"]});
+    window.__BD=new window.BarcodeDetector({formats:FORMATS});
     return window.__BD;
   }
-  /* Safari on iOS has no BarcodeDetector — load the wasm polyfill on demand */
-  msg("loading scanner…");
-  const m=await import("https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/es/pure.min.js");
-  window.__BD=new m.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e"]});
+  /* Safari on iOS has no BarcodeDetector. Load the ZXing wasm ponyfill —
+     IIFE build, so no ES-module or import-map plumbing needed. */
+  msg("loading scanner (first time only)…");
+  await loadScript("https://fastly.jsdelivr.net/npm/barcode-detector@3/dist/iife/ponyfill.min.js");
+  const api=window.BarcodeDetectionAPI;
+  if(!api||!api.BarcodeDetector) throw new Error("scanner failed to load");
+  window.__BD=new api.BarcodeDetector({formats:FORMATS});
   return window.__BD;
 }
 
@@ -612,7 +666,10 @@ async function openSheet(){
     };
     loop();
   }catch(e){
-    msg("no camera — use the search box below");
+    const m=String(e&&e.message||e);
+    if(/denied|NotAllowed/i.test(m)) msg("camera blocked — allow it in Settings → Safari → Camera, then reopen");
+    else if(/load/i.test(m)) msg("scanner wouldn't download — check your connection, or type the barcode below");
+    else msg("camera unavailable: "+m+" — type the barcode or search below");
   }
 }
 
@@ -649,6 +706,7 @@ async function lookup(code){
 async function search(){
   const q=document.getElementById("q").value.trim();
   if(!q) return;
+  if(/^\d{8,14}$/.test(q)){ return lookup(q); }   /* typed a barcode */
   msg("searching…");
   try{
     const r=await fetch(`${OFF}/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,brands,nutriments`);
@@ -707,6 +765,7 @@ document.getElementById("results").addEventListener("click",e=>{
   if(e.target.id==="addIt") commitFood();
 });
 
+migrate();
 render(true);
 
 /* offline: cache the app on first load, then run without a network */

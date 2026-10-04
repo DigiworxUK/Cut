@@ -1,6 +1,6 @@
 /* The Cut — offline cache.
    Bump CACHE when you change any file, or phones will keep serving the old copy. */
-const CACHE = "thecut-v4";
+const CACHE = "thecut-v7";
 const FILES = [
   "./",
   "./index.html",
@@ -25,6 +25,9 @@ self.addEventListener("activate", e => {
    Refresh the cached copy in the background when there is a network. */
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
+  /* Only ever cache our own files. The scanner CDN and the Open Food Facts API
+     must always go to the network — a stale cached food lookup is worse than none. */
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then(hit => {
       const live = fetch(e.request)

@@ -9,8 +9,8 @@ const ok = (name, cond, extra) => {
   else { fail++; console.log("  FAIL  " + name + (extra ? "  → " + extra : "")); }
 };
 
-function boot(fixedDate) {
-  const store = {};
+function boot(fixedDate, seed) {
+  const store = seed ? { "thecut.v1": seed } : {};
   const dom = new JSDOM(fs.readFileSync(HTML, "utf8"), {
     runScripts: "dangerously",
     pretendToBeVisual: true,
@@ -126,9 +126,9 @@ const saved = store => JSON.parse(store["thecut.v1"] || "{}");
   type(w, wIn, "80");
   type(w, rIn, "8");
   const s = saved(store).sessions["2026-08-31"];
-  ok("weight written to storage", s && s.entries.sq[0].w === "80", JSON.stringify(s));
-  ok("reps written to storage", s && s.entries.sq[0].r === "8");
-  ok("session letter recorded", s && s.day === "A");
+  ok("weight written to storage", s && s.A.entries.sq[0].w === "80", JSON.stringify(s));
+  ok("reps written to storage", s && s.A.entries.sq[0].r === "8");
+  ok("session letter recorded", s && !!s.A);
 
   tap(w, d.querySelector('[data-pick="B"]'));
   ok("switching to B shows deadlift", text(d).includes("Deadlift"));
@@ -144,7 +144,7 @@ const saved = store => JSON.parse(store["thecut.v1"] || "{}");
   const { w, d, store } = boot("2026-09-02T09:00:00"); // Wednesday
   store["thecut.v1"] = JSON.stringify({
     weights: {}, shopping: {}, meals: {},
-    sessions: { "2026-08-31": { day: "A", entries: { sq: [{w:"80",r:"8"},{w:"80",r:"8"},{w:"80",r:"8"},{w:"80",r:"8"}] } } },
+    sessions: { "2026-08-31": { A: { entries: { sq: [{w:"80",r:"8"},{w:"80",r:"8"},{w:"80",r:"8"},{w:"80",r:"8"}] } } } },
   });
   const b = boot("2026-09-02T09:00:00");
   b.store["thecut.v1"] = store["thecut.v1"];
@@ -307,9 +307,105 @@ const saved = store => JSON.parse(store["thecut.v1"] || "{}");
 {
   console.log("\nNetwork boundaries");
   const html = fs.readFileSync(HTML, "utf8");
-  ok("scanner polyfill loaded lazily, not at boot", !/<script[^>]+type="module"/.test(html) && html.includes('await import('));
+  ok("scanner polyfill loaded lazily, not at boot", !/<script[^>]+type="module"/.test(html) && html.includes('iife/ponyfill.min.js'));
   ok("uses Open Food Facts v2 product endpoint", html.includes("/api/v2/product/"));
   ok("lookup failures are surfaced", html.includes("check your connection"));
+}
+
+
+
+
+/* ── 15. session D ── */
+{
+  console.log("\nSession D");
+  const { w, d } = boot("2026-09-03T09:00:00");       // a Thursday
+  ok("Thursday shows accessories, not a ride", text(d).includes("Accessories + 4x4"));
+  ok("Thursday is no longer a ride day", !text(d).includes("Ride day"));
+  ok("rest-day macros on Thursday", text(d).includes("1950"));
+
+  gotoTab(w, d, "train");
+  ok("four session buttons", d.querySelectorAll("[data-pick]").length === 4);
+  ok("auto-selects D", text(d).includes("Accessories + 4x4"));
+  ok("lateral raise present", text(d).includes("Lateral raise"));
+  ok("calf raise present", text(d).includes("calf raise"));
+  ok("4x4 present", text(d).includes("4x4 intervals"));
+  ok("interval row has no kg column", text(d).includes("MINUTES"));
+  ok("protocol note shown", text(d).includes("4 min hard"));
+
+  const inputs = d.querySelectorAll('[data-lift="lat"]');
+  ok("lateral raise has 3 sets", inputs.length === 6, inputs.length + " inputs");
+
+  // Tuesday and Saturday still ride
+  const t = boot("2026-09-01T09:00:00");
+  ok("Tuesday still a ride day", text(t.d).includes("Ride day"));
+  const sat = boot("2026-09-05T09:00:00");
+  ok("Saturday still a ride day", text(sat.d).includes("Ride day"));
+  // A/B/C untouched
+  const mon = boot("2026-08-31T09:00:00");
+  ok("Monday still session A", text(mon.d).includes("Lift day — A"));
+  ok("Monday still a training-macro day", text(mon.d).includes("2350"));
+}
+
+console.log(`\n${pass} passed, ${fail} failed`);
+console.log("\nSession data isolation");
+{
+  const {w,d,store:st}=boot("2026-09-07T09:00:00");
+  tap(w, d.querySelector('[data-tab="train"]'));
+  type(w, d.querySelector('[data-lift="sq"][data-f="w"]'),"85");
+  tap(w, d.querySelector('[data-pick="B"]'));
+  type(w, d.querySelector('[data-lift="dl"][data-f="w"]'),"90");
+  ok("A survives switching to B", saved(st).sessions["2026-09-07"].A.entries.sq[0].w==="85");
+  ok("B stored alongside it", saved(st).sessions["2026-09-07"].B.entries.dl[0].w==="90");
+  tap(w, d.querySelector('[data-pick="A"]'));
+  ok("A redisplays its own value", d.querySelector('[data-lift="sq"][data-f="w"]').value==="85",
+     d.querySelector('[data-lift="sq"][data-f="w"]').value);
+  // clear day only clears the visible session
+  const clr=d.querySelector("[data-clear]");
+  if(clr) tap(w,clr);
+  ok("clear day removes only A", !saved(st).sessions["2026-09-07"].A && !!saved(st).sessions["2026-09-07"].B,
+     JSON.stringify(saved(st).sessions));
+}
+
+console.log("\nSkipped sets");
+{
+  const {w,d,store:st}=boot("2026-09-07T09:00:00");
+  tap(w, d.querySelector('[data-tab="train"]'));
+  const boxes=d.querySelectorAll('[data-lift="sq"][data-f="r"]');
+  type(w,boxes[3],"8");                       // fill only set 4
+  const rows=saved(st).sessions["2026-09-07"].A.entries.sq;
+  ok("no holes in the array", rows.length===4 && rows.every(r=>r!==null&&r!==undefined),
+     JSON.stringify(rows));
+  ok("survives a JSON round trip", JSON.parse(JSON.stringify(rows)).every(r=>r!==null));
+}
+
+console.log("\nCrash on reload with legacy sparse data");
+{
+  const seed=JSON.stringify({weights:{},shopping:{},meals:{},extra:{},
+    sessions:{"2026-09-07":{day:"A",entries:{sq:[null,null,null,{w:"85",r:"8"}]}}}});
+  const {w,d,store:st}=boot("2026-09-14T09:00:00",seed);
+  tap(w, d.querySelector('[data-tab="train"]'));
+  ok("Train tab still renders", text(d).includes("Back squat"));
+  ok("old data migrated to the new shape", !!saved(st).sessions["2026-09-07"].A, JSON.stringify(saved(st).sessions));
+  ok("no false progression prompt", !text(d).includes("add 5 kg"));
+}
+
+console.log("\nProgression still fires when it should");
+{
+  const seed=JSON.stringify({weights:{},shopping:{},meals:{},extra:{},
+    sessions:{"2026-09-07":{A:{entries:{sq:[{w:"80",r:"8"},{w:"80",r:"8"},{w:"80",r:"8"},{w:"80",r:"8"}]}}}}});
+  const {w,d}=boot("2026-09-14T09:00:00",seed);
+  tap(w, d.querySelector('[data-tab="train"]'));
+  ok("offers +5 kg on a completed lift", text(d).includes("add 5 kg"));
+  ok("names 85 kg", text(d).includes("85 kg"));
+  ok("ghost shows last session", d.querySelector('[data-lift="sq"][data-f="w"]').getAttribute("placeholder")==="80");
+}
+
+console.log("\nRest-day plan update");
+{
+  const {d}=boot("2026-09-08T09:00:00");   // Tuesday
+  ok("carbs now 160 g", text(d).includes("160g"));
+  ok("fat down to 70 g", text(d).includes("70g"));
+  ok("ride-day fuelling note", text(d).includes("60 g of carbs an hour"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
