@@ -346,6 +346,91 @@ const saved = store => JSON.parse(store["thecut.v1"] || "{}");
   ok("Monday still a training-macro day", text(mon.d).includes("2350"));
 }
 
+
+console.log("\nCook tab + new shopping list");
+{
+  const {w,d,store}=boot("2026-10-13T09:00:00");
+  gotoTab(w,d,"shop");
+  ok("potatoes cut to 1 kg", text(d).includes("Potatoes — 1 kg") && !text(d).includes("jackets"));
+  ok("tray bake chickpeas on the list", text(d).includes("Chickpeas — 5 tins"));
+  ok("korma paste on the list", text(d).includes("Mild korma paste"));
+  ok("old salmon line gone", !text(d).includes("Salmon fillets"));
+  gotoTab(w,d,"cook");
+  ok("cook tab lists three recipes", d.querySelectorAll("[data-recipe]").length===3);
+  tap(w,d.querySelector('[data-recipe="korma"]'));
+  ok("korma opens with method", text(d).includes("Turn the slow cooker OFF"));
+  tap(w,d.querySelector('[data-recipe="korma"]'));
+  ok("korma closes again", !text(d).includes("Turn the slow cooker OFF"));
+  tap(w,d.querySelector('[data-recipe="beef"]'));
+  ok("beef stew opens", text(d).includes("pearl barley"));
+}
+console.log("\nOld shopping ticks are cleared");
+{
+  const seed=JSON.stringify({weights:{},sessions:{},meals:{},extra:{},
+    shopping:{"Salmon fillets — 3":true,"Rice — 1 kg":true}});
+  const {w,d,store}=boot("2026-10-13T09:00:00",seed);
+  gotoTab(w,d,"shop");
+  ok("kept tick still counts", text(d).includes("1 of "));
+}
+
+console.log("\nDinner swaps");
+{
+  const {w,d,store}=boot("2026-09-14T09:00:00");   // Monday, lift day
+  ok("plan dinner shown by default", text(d).includes("Salmon, potatoes, greens"));
+  ok("swap chips on dinner", d.querySelectorAll("[data-swap]").length===4);
+  tap(w,d.querySelector('[data-swap="korma"]'));
+  ok("korma replaces salmon", text(d).includes("Lighter chicken korma") && !text(d).includes("Salmon, potatoes, greens"));
+  ok("swap saved for the day", saved(store).dinner["2026-09-14"]==="korma");
+  ok("korma training-day numbers", text(d).includes("63g P · 710 kcal"));
+  tap(w,d.querySelector('[data-meal="t4"]'));
+  ok("ticked korma counts toward kcal", text(d).includes("710/2350 kcal"));
+  tap(w,d.querySelector('[data-open="t4"]'));
+  ok("sides listed", text(d).includes("Slow-cooker portion") && text(d).includes("Rice, cooked"));
+  tap(w,d.querySelector('[data-cookgo="korma"]'));
+  ok("jumps to cook tab with korma open", text(d).includes("Turn the slow cooker OFF"));
+  gotoTab(w,d,"today");
+  w.document.getElementById("next").click();
+  ok("next day unaffected", !text(d).includes("Lighter chicken korma"));
+  w.document.getElementById("prev").click();
+  tap(w,d.querySelector('[data-swap="plan"]'));
+  ok("back to plan dinner", text(d).includes("Salmon, potatoes, greens") && !saved(store).dinner["2026-09-14"]);
+}
+{
+  const {w,d}=boot("2026-09-08T09:00:00");   // Tuesday, rest day
+  tap(w,d.querySelector('[data-swap="beef"]'));
+  ok("rest-day beef stew numbers", text(d).includes("51g P · 590 kcal"));
+}
+{
+  const seed=JSON.stringify({weights:{},sessions:{},shopping:{},meals:{},extra:{}});
+  const {d}=boot("2026-09-14T09:00:00",seed);
+  ok("old saves without dinner field still load", text(d).includes("Salmon, potatoes, greens"));
+}
+
+console.log("\nLunch swaps");
+{
+  const {w,d,store}=boot("2026-09-14T09:00:00");   // Monday, lift day
+  ok("plan lunch by default", text(d).includes("Chicken, rice, big salad"));
+  ok("four lunch chips", d.querySelectorAll("[data-lswap]").length===4);
+  tap(w,d.querySelector('[data-lswap="traybake"]'));
+  ok("tray bake replaces salad", text(d).includes("Chicken, chickpea & veg tray bake") && !text(d).includes("Chicken, rice, big salad"));
+  ok("lunch swap saved", saved(store).lunch["2026-09-14"]==="traybake");
+  ok("tray bake training numbers", text(d).includes("62g P · 665 kcal"));
+  tap(w,d.querySelector('[data-open="t2"]'));
+  ok("method shown when opened", text(d).includes("200 °C fan"));
+  tap(w,d.querySelector('[data-swap="korma"]'));
+  ok("lunch and dinner swaps coexist", text(d).includes("Chicken, chickpea & veg tray bake") && text(d).includes("Lighter chicken korma"));
+  tap(w,d.querySelector('[data-meal="t2"]')); tap(w,d.querySelector('[data-meal="t4"]'));
+  ok("both count toward kcal", text(d).includes("1375/2350 kcal"));
+  tap(w,d.querySelector('[data-lswap="plan"]'));
+  ok("lunch back to plan, dinner kept", text(d).includes("Chicken, rice, big salad") && text(d).includes("Lighter chicken korma"));
+}
+{
+  const {w,d}=boot("2026-09-08T09:00:00");   // rest day
+  ok("no jacket chip", !d.querySelector('[data-lswap="jacket"]'));
+  tap(w,d.querySelector('[data-lswap="soup"]'));
+  ok("rest-day soup numbers", text(d).includes("56g P · 520 kcal"));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log("\nSession data isolation");
 {

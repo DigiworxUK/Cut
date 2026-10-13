@@ -182,19 +182,64 @@ const MEALS={
 };
 
 const SHOP=[
- ["Protein",["Chicken breast — 1 kg","Salmon fillets — 3","Mackerel or sardines — 2","Lean steak or turkey — 400 g","Tuna in springwater — 3 tins","0% Greek yoghurt / skyr — 1.5 kg","Whey protein","Semi-skimmed milk — 2 L"]],
- ["Carbs",["Porridge oats — 1 kg","Rice — 1 kg","Potatoes — 1.5 kg","Lentils or quinoa — 500 g","Butter beans / chickpeas — 4 tins","Bananas — 5","Frozen mixed berries — 1 kg"]],
+ ["Protein",["Chicken breast — 3.2 kg (2 kg stews, 1.2 kg soup + tray bake)","Lean diced beef — 1 kg","Mackerel or sardines — 2","Tuna in springwater — 3 tins","0% Greek yoghurt / skyr — 2 kg","Whey protein","Semi-skimmed milk — 2 L"]],
+ ["Carbs",["Porridge oats — 1 kg","Rice — 1 kg","Potatoes — 1 kg (dinners, soup)","Sweet potatoes — 600 g","Red lentils — 500 g","Pearl barley — 1 bag","Bananas — 5","Frozen mixed berries — 1 kg"]],
+ ["Tins & cupboard",["Chopped tomatoes — 4 tins","Chickpeas — 5 tins","Butter beans — 3 tins","Black beans — 2 tins","Kidney beans — 1 tin","Mild korma paste — 1 jar","Ground almonds — small bag","Tomato purée","Chicken stock cubes (4) + beef stock cubes (2)"]],
  ["Fats",["Extra virgin olive oil — 1 L","Avocados — 4","Mixed nuts / almonds — 500 g"]],
- ["Veg",["Broccoli, green beans","Courgettes, peppers, red onions","Salad leaves, tomatoes, cucumber","Garlic, lemons"]],
- ["Flavour",["Dijon mustard, vinegar","Soy sauce, hot sauce","Paprika, cumin, chilli, dried herbs","Feta or parmesan — small"]]
+ ["Veg",["Onions — 7, plus 3 red onions","Carrots — 2 × 1 kg bags","Peppers — 5 (2 red for chilli, 3 for tray bake)","Cauliflower — 1 small","Fresh ginger","Broccoli, green beans","Courgettes — 2","Swede — 1 small"
+ ,"Celery — 2 packs"
+ ,"Mushrooms — 250 g","Spinach — 200 g","Salad leaves, tomatoes, cucumber","Garlic — 2 bulbs","Lemons"]],
+ ["Flavour",["Dijon mustard, vinegar","Soy sauce, hot sauce","Smoked paprika, cumin, chilli","Oregano, thyme, bay leaves","Feta or parmesan — small"]]
+];
+
+/* dinner swaps — one stew portion plus sides, sized to each day's dinner slot */
+const SWAPS={
+ chilli:{short:"Chilli",train:{p:56,kcal:670,sides:[["Rice, cooked","150 g"],["Broccoli or green beans","150 g"]]},
+                        rest:{p:55,kcal:605,sides:[["Rice, cooked","100 g"],["Broccoli or green beans","150 g"]]}},
+ korma:{short:"Korma",train:{p:63,kcal:710,sides:[["Rice, cooked","150 g"],["Broccoli or green beans","150 g"]]},
+                      rest:{p:62,kcal:645,sides:[["Rice, cooked","100 g"],["Broccoli or green beans","150 g"]]}},
+ beef:{short:"Beef stew",train:{p:52,kcal:625,sides:[["Potatoes","200 g"],["Broccoli or green beans","150 g"]]},
+                         rest:{p:51,kcal:590,sides:[["Potatoes","150 g"],["Broccoli or green beans","150 g"]]}}
+};
+
+/* warm lunch swaps — sized to each day's lunch slot (train ~52 g P / 695 kcal, rest ~55 g / 620) */
+const LUNCHES={
+ stew:{short:"Leftover stew",name:"Leftover slow-cooker portion",
+  how:["Reheat a portion until piping hot all the way through.","Training day: with rice. Rest day: less rice, more greens."],
+  train:{p:57,kcal:710,ing:[["Any slow-cooker portion","1 of 6"],["Rice, cooked","175 g"],["Broccoli or green beans","100 g"]]},
+  rest:{p:56,kcal:625,ing:[["Any slow-cooker portion","1 of 6"],["Rice, cooked","100 g"],["Broccoli or green beans","150 g"]]}},
+ soup:{short:"Soup",name:"Chicken & red lentil soup",
+  how:["Batch of 4: 600 g chicken, 320 g red lentils, 800 g carrot/celery/onion, 2 stock cubes, 1.6 L water.","Simmer 30 min (or slow cooker low 6 h). Shred the chicken back in. Training-day portions get potatoes cooked in. Flask-friendly."],
+  train:{p:60,kcal:670,ing:[["Chicken breast, raw","150 g"],["Red lentils, dry","80 g"],["Carrot, celery, onion","200 g"],["Potatoes","200 g"]]},
+  rest:{p:56,kcal:520,ing:[["Chicken breast, raw","150 g"],["Red lentils, dry","80 g"],["Carrot, celery, onion","200 g"]]}},
+ traybake:{short:"Tray bake",name:"Chicken, chickpea & veg tray bake",
+  how:["Batch of 3 on one tray: chicken, chickpeas, peppers, courgette and red onion tossed in the oil and smoked paprika.","200 °C fan for 25–30 min. Box with the rice; reheat until piping hot."],
+  train:{p:62,kcal:665,ing:[["Chicken breast, raw","200 g"],["Chickpeas, drained","½ tin"],["Peppers, courgette, red onion","250 g"],["Olive oil","5 g (1 tsp)"],["Rice, cooked","150 g"]]},
+  rest:{p:61,kcal:600,ing:[["Chicken breast, raw","200 g"],["Chickpeas, drained","½ tin"],["Peppers, courgette, red onion","250 g"],["Olive oil","5 g (1 tsp)"],["Rice, cooked","100 g"]]}}
+};
+
+/* slow-cooker dinners — each serves 6, i.e. 3 dinners for two */
+const RECIPES=[
+ {id:"chilli",name:"Chicken, black bean & sweet potato chilli",macro:"~48 g protein · 14 g fibre · 1.5 g sat fat · ~430 kcal",time:"Low 7 h / high 4 h",
+  ing:["1 kg diced chicken breast","600 g sweet potato, 2 cm cubes","2 onions","2 red peppers","4 garlic cloves","2 tins chopped tomatoes","2 tbsp tomato purée","2 tsp smoked paprika","2 tsp cumin","1 tsp chilli powder","1 tsp oregano","1 chicken stock cube in 150 ml boiling water","2 tins black beans, drained","1 tin kidney beans, drained"],
+  steps:["Sweet potato, onions, peppers and garlic in the bottom of the pot, chicken on top.","Stir in the tomatoes, purée, spices and stock.","Cook on low 7 h (or high 4 h).","Stir in the drained beans, cook 30 min more. Season. Serve with rice and a spoon of 0% Greek yoghurt."]},
+ {id:"korma",name:"Lighter chicken korma with chickpeas & lentils",macro:"~55 g protein · 12 g fibre · 2 g sat fat · ~470 kcal",time:"Low 7 h / high 4 h",
+  ing:["1 kg diced chicken breast","3 tbsp mild korma paste","2 onions","4 garlic cloves","Thumb of fresh ginger, grated","1 tin chopped tomatoes","2 tins chickpeas, drained","150 g red lentils, rinsed","1 small cauliflower, small florets","1 chicken stock cube in 400 ml boiling water","300 g 0% Greek yoghurt","40 g ground almonds","200 g spinach"],
+  steps:["Dissolve the stock cube in the boiling water and stir in the korma paste.","Onions, garlic, ginger, lentils, chickpeas and cauliflower in the pot, chicken on top. Pour over the stock and tomatoes; stir so the lentils are submerged.","Cook on low 7 h (or high 4 h).","Turn the slow cooker OFF. Mix a ladle of hot sauce into the yoghurt, then stir it back in with the almonds and spinach. Heat off stops it splitting.","Season and serve with rice. Freeze portions without the yoghurt; stir it in when reheating."]},
+ {id:"beef",name:"Lean beef, barley & butter bean stew",macro:"~44 g protein · 10 g fibre · 3 g sat fat · ~430 kcal",time:"Low 8 h / high 5 h",
+  ing:["1 kg lean diced beef, fat trimmed","150 g pearl barley, rinsed","4 carrots","1 small swede, cubed","3 celery sticks","250 g mushrooms","1 onion","3 garlic cloves","1 tin chopped tomatoes","1 tbsp tomato purée","2 beef stock cubes in 900 ml boiling water","1 tsp thyme","2 bay leaves","2 tins butter beans, drained"],
+  steps:["Dissolve the stock cubes and purée in the boiling water.","Veg, garlic and barley in the pot, beef on top. Pour over the stock and tomatoes; add thyme and bay.","Cook on low 8 h (or high 5 h) until the beef is tender.","Stir in the butter beans, cook 30 min more. Remove bay leaves, season."]}
 ];
 const MILESTONES=[[86,"25%"],[81,"20%"],[77,"16%"],[74,"13%"],[72,"10%"]];
 
 /* ─────────── storage ─────────── */
 const KEY="thecut.v1";
-let S={weights:{},sessions:{},shopping:{},meals:{},extra:{}};
+let S={weights:{},sessions:{},shopping:{},meals:{},extra:{},dinner:{},lunch:{}};
 try{ const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(S,JSON.parse(raw)); }
 catch(e){ }
+if(!S.dinner) S.dinner={};
+if(!S.lunch) S.lunch={};
+{ const live=new Set(SHOP.flatMap(x=>x[1])); for(const k in S.shopping) if(!live.has(k)) delete S.shopping[k]; }
 
 let flash;
 function save(){
@@ -220,15 +265,28 @@ const dow=s=>new Date(s+"T12:00:00").getDay();
 const fmt=s=>new Date(s+"T12:00:00").toLocaleDateString("en-GB",
   {weekday:"short",day:"numeric",month:"short"});
 
-let date=today(), tab="today", openMeal=null, pick=null;
+let date=today(), tab="today", openMeal=null, pick=null, openRecipe=null;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 /* ─────────── views ─────────── */
 function viewToday(){
   const sess=DAY_MAP[dow(date)]||null, ride=RIDE.includes(dow(date));
-  const plan=MEALS[(sess&&sess!=="D")?"train":"rest"];
+  const kind=(sess&&sess!=="D")?"train":"rest";
+  const plan=MEALS[kind];
   const tick=S.meals[date]||{};
-  const eaten=plan.items.filter(i=>tick[i.id]);
+  const swap=S.dinner[date];
+  const lswap=S.lunch[date];
+  const items=plan.items.map(i=>{
+    if(i.when==="Lunch"&&LUNCHES[lswap]){
+      const L=LUNCHES[lswap], v=L[kind];
+      return Object.assign({},i,{name:L.name,p:v.p,kcal:v.kcal,ing:v.ing,how:L.how,lswapped:lswap});
+    }
+    if(i.when!=="Dinner"||!SWAPS[swap]) return i;
+    const r=RECIPES.find(x=>x.id===swap), v=SWAPS[swap][kind];
+    return Object.assign({},i,{name:r.name,p:v.p,kcal:v.kcal,swapped:swap,
+      ing:[["Slow-cooker portion","1 of 6"]].concat(v.sides)});
+  });
+  const eaten=items.filter(i=>tick[i.id]);
   const ex=S.extra[date]||[];
   const gp=eaten.reduce((a,i)=>a+i.p,0)+ex.reduce((a,i)=>a+i.p,0);
   const gk=eaten.reduce((a,i)=>a+i.kcal,0)+ex.reduce((a,i)=>a+i.kcal,0);
@@ -253,7 +311,7 @@ function viewToday(){
     <div class="eyebrow">${Math.round(gp)}/${plan.p} g protein · ${Math.round(gk)}/${plan.kcal} kcal</div>
     <div class="bar"><i style="width:${Math.min(100,gp/plan.p*100)}%"></i></div>`;
 
-  plan.items.forEach(i=>{
+  items.forEach(i=>{
     const on=!!tick[i.id], isOpen=openMeal===i.id;
     h+=`<div style="border-bottom:1px solid var(--ruleSoft)">
       <div style="display:flex;align-items:center;gap:12px;padding:12px 0">
@@ -269,8 +327,24 @@ function viewToday(){
       ${isOpen?`<div style="padding:0 0 12px 32px">
         ${i.ing.map(([n,w])=>`<div class="ing"><span style="font-size:13px;color:var(--muted)">${esc(n)}</span>
           <span class="mono" style="font-size:13px">${esc(w)}</span></div>`).join("")}
-        <div class="mono" style="font-size:10px;color:var(--faint);margin-top:8px">
-          Weigh raw. Cooked weights drift with time in the pan.</div></div>`:""}
+        ${i.how?`<ol style="margin:10px 0 0 18px;font-size:13px;line-height:1.55;color:var(--chalk)">${i.how.map(x=>`<li style="margin-bottom:6px">${esc(x)}</li>`).join("")}</ol>`:""}
+        ${i.lswapped?"":i.swapped?`<button data-cookgo="${i.swapped}" class="mono" style="font-size:11px;color:var(--patina);margin-top:8px">recipe in cook tab →</button>`:
+        `<div class="mono" style="font-size:10px;color:var(--faint);margin-top:8px">
+          Weigh raw. Cooked weights drift with time in the pan.</div>`}</div>`:""}
+      ${i.when==="Lunch"?`<div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 0 12px 32px">
+        ${[["plan","Plan"]].concat(Object.keys(LUNCHES).map(k=>[k,LUNCHES[k].short])).map(([k,l])=>{
+          const sel=LUNCHES[lswap]?lswap===k:k==="plan";
+          return `<button data-lswap="${k}" class="mono" style="font-size:11px;padding:6px 10px;border-radius:3px;
+            border:1px solid ${sel?"var(--ochre)":"var(--rule)"};color:${sel?"var(--ink)":"var(--muted)"};
+            background:${sel?"var(--ochre)":"transparent"}">${l}</button>`;}).join("")}
+      </div>`:""}
+      ${i.when==="Dinner"?`<div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 0 12px 32px">
+        ${[["plan","Plan"]].concat(Object.keys(SWAPS).map(k=>[k,SWAPS[k].short])).map(([k,l])=>{
+          const sel=(swap||"plan")===k||(k==="plan"&&!SWAPS[swap]);
+          return `<button data-swap="${k}" class="mono" style="font-size:11px;padding:6px 10px;border-radius:3px;
+            border:1px solid ${sel?"var(--patina)":"var(--rule)"};color:${sel?"var(--chalk)":"var(--muted)"};
+            background:${sel?"var(--patina)":"transparent"}">${l}</button>`;}).join("")}
+      </div>`:""}
     </div>`;
   });
   h+=`</div>`;
@@ -404,7 +478,7 @@ function viewShop(){
       <button data-reset="1" style="color:var(--pencil);font-family:var(--mono);font-size:11px">reset week</button>
     </div>
     <div class="bar"><i style="width:${done/all.length*100}%"></i></div>
-    <div class="sub" style="margin-top:12px">Aldi own-brand covers nearly all of it — about £55 the first week, £45 after.</div>
+    <div class="sub" style="margin-top:12px">The week’s plan, three slow-cooker dinners for two, plus the soup and tray-bake lunch batches. Aldi own-brand covers nearly all of it.</div>
   </div>`;
   SHOP.forEach(([sec,items])=>{
     h+=`<div class="panel"><div class="eyebrow">${sec}</div>`;
@@ -420,6 +494,26 @@ function viewShop(){
     <div style="font-size:14px;color:var(--muted);line-height:1.6">
     Butter, coconut oil, 20% mince, cheddar, cream. Keeping these out of the trolley
     is the single change from last time.</div></div>`;
+  return h;
+}
+
+function viewCook(){
+  let h=`<div class="panel"><div class="eyebrow">Slow-cooker dinners</div>
+    <div class="sub" style="margin-top:8px">Each serves 6 — three dinners for two. No oil, no browning. All freeze for 3 months in two-portion tubs.</div></div>`;
+  RECIPES.forEach(r=>{
+    const open=openRecipe===r.id;
+    h+=`<div class="panel"><button class="row" data-recipe="${r.id}" style="width:100%;text-align:left;justify-content:space-between">
+      <span><span style="font-size:15px">${esc(r.name)}</span><br><span class="sub">${esc(r.time)}</span></span>
+      <span class="sub">${open?"−":"+"}</span></button>`;
+    if(open){
+      h+=`<div class="sub" style="margin:4px 0 12px">${esc(r.macro)} per portion</div>
+        <div class="eyebrow">Ingredients</div>
+        <ul style="margin:8px 0 14px 18px;font-size:14px;line-height:1.7">${r.ing.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
+        <div class="eyebrow">Method</div>
+        <ol style="margin:8px 0 4px 18px;font-size:14px;line-height:1.6">${r.steps.map(x=>`<li style="margin-bottom:8px">${esc(x)}</li>`).join("")}</ol>`;
+    }
+    h+=`</div>`;
+  });
   return h;
 }
 
@@ -520,12 +614,12 @@ function render(toTop){
   document.getElementById("jump").style.visibility = date===today()?"hidden":"visible";
 
   document.getElementById("tabs").innerHTML =
-    ["today","train","shop","log"].map(t=>
+    ["today","train","shop","cook","log"].map(t=>
       `<button data-tab="${t}" class="${t===tab?"on":""}">${t}</button>`).join("");
 
   const v=document.getElementById("view");
   const keep=window.scrollY;
-  v.innerHTML = tab==="today"?viewToday():tab==="train"?viewTrain():tab==="shop"?viewShop():viewLog();
+  v.innerHTML = tab==="today"?viewToday():tab==="train"?viewTrain():tab==="shop"?viewShop():tab==="cook"?viewCook():viewLog();
   if(toTop) window.scrollTo(0,0); else window.scrollTo(0,keep);
   wire();
 }
@@ -586,12 +680,16 @@ function wire(){
 /* attached ONCE — re-attaching per render made every tap fire N times,
    which cancelled itself out and looked like a tick you couldn't clear */
 document.getElementById("view").addEventListener("click",e=>{
-  const t=e.target.closest("[data-meal],[data-open],[data-shop],[data-pick],[data-go],[data-reset],[data-clear]");
+  const t=e.target.closest("[data-meal],[data-open],[data-shop],[data-recipe],[data-swap],[data-lswap],[data-cookgo],[data-pick],[data-go],[data-reset],[data-clear]");
   if(!t) return;
   const d=t.dataset;
   if(d.meal!==undefined){ const m=S.meals[date]||(S.meals[date]={}); m[d.meal]=!m[d.meal]; save(); render(); }
   else if(d.open!==undefined){ openMeal=openMeal===d.open?null:d.open; render(); }
   else if(d.shop!==undefined){ S.shopping[d.shop]=!S.shopping[d.shop]; save(); render(); }
+  else if(d.swap!==undefined){ if(d.swap==="plan") delete S.dinner[date]; else S.dinner[date]=d.swap; save(); render(); }
+  else if(d.lswap!==undefined){ if(d.lswap==="plan") delete S.lunch[date]; else S.lunch[date]=d.lswap; save(); render(); }
+  else if(d.cookgo!==undefined){ tab="cook"; openRecipe=d.cookgo; pick=null; render(true); }
+  else if(d.recipe!==undefined){ openRecipe=openRecipe===d.recipe?null:d.recipe; render(); }
   else if(d.pick!==undefined){ pick=d.pick; render(true); }
   else if(d.go!==undefined){ tab=d.go; pick=null; render(true); }
   else if(d.reset!==undefined){ S.shopping={}; save(); render(true); }
